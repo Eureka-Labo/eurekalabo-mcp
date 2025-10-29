@@ -18,12 +18,43 @@ Model Context Protocol (MCP) server for Eureka Labo task management with automat
 
 ## Installation
 
+### Option 1: Quick Install (Recommended)
+
+Clone the repository and install dependencies:
+
+```bash
+# Clone the repository
+git clone https://github.com/Eureka-Labo/eurekalabo-mcp.git
+cd eurekalabo-mcp
+
+# Install dependencies
+npm install
+
+# Add to Claude Code (Mac/Linux)
+claude mcp add --transport stdio eureka-tasks \
+  --env EUREKA_API_URL=https://eurekalabo.162-43-92-100.nip.io \
+  --env EUREKA_API_KEY=pk_live_your_api_key_here \
+  -- npx tsx "$(pwd)/src/index.ts"
+
+# Add to Claude Code (Windows - run in PowerShell)
+claude mcp add --transport stdio eureka-tasks `
+  --env EUREKA_API_URL=https://eurekalabo.162-43-92-100.nip.io `
+  --env EUREKA_API_KEY=pk_live_your_api_key_here `
+  -- npx tsx "$PWD/src/index.ts"
+```
+
+### Option 2: Manual Installation
+
 ```bash
 cd /path/to/eurekalabo/mcp-server
 npm install
 ```
 
+Then manually configure `~/.claude/mcp.json` (see Configuration section below).
+
 ## Configuration
+
+**Note:** If you used Option 1 (Quick Install), you've already configured the MCP server! You can skip to the [Usage](#usage) section. The following steps are for Option 2 (Manual Installation) or if you need to reconfigure.
 
 ### 1. Generate API Key
 
