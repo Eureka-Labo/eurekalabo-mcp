@@ -34,25 +34,25 @@ npm install
 claude mcp add -t stdio eureka-tasks \
   -e EUREKA_API_URL=https://eurekalabo.162-43-92-100.nip.io \
   -e EUREKA_API_KEY=pk_live_your_api_key_here \
-  -- npx -y tsx "$(pwd)/src/index.ts"
+  -- npx tsx "$(pwd)/src/index.ts"
 
 # OR from anywhere with absolute path (Mac/Linux)
 claude mcp add -t stdio eureka-tasks \
   -e EUREKA_API_URL=https://eurekalabo.162-43-92-100.nip.io \
   -e EUREKA_API_KEY=pk_live_your_api_key_here \
-  -- npx -y tsx /Users/yourname/workspace/eurekalabo-mcp/src/index.ts
+  -- npx tsx /Users/yourname/workspace/eurekalabo-mcp/src/index.ts
 
 # Add to Claude Code (Windows - run in PowerShell)
 claude mcp add -t stdio eureka-tasks `
   -e EUREKA_API_URL=https://eurekalabo.162-43-92-100.nip.io `
   -e EUREKA_API_KEY=pk_live_your_api_key_here `
-  -- cmd /c npx -y tsx "$PWD/src/index.ts"
+  -- cmd /c npx tsx "$PWD/src/index.ts"
 
 # OR from anywhere with absolute path (Windows)
 claude mcp add -t stdio eureka-tasks `
   -e EUREKA_API_URL=https://eurekalabo.162-43-92-100.nip.io `
   -e EUREKA_API_KEY=pk_live_your_api_key_here `
-  -- cmd /c npx -y tsx C:/workspace/eurekalabo-mcp/src/index.ts
+  -- cmd /c npx tsx C:/workspace/eurekalabo-mcp/src/index.ts
 ```
 
 ### Option 2: Manual Installation
