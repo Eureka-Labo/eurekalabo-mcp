@@ -64,6 +64,7 @@ EUREKA_API_KEY=pk_live_your_personal_api_key_here
 
 Add to `~/.claude/mcp.json`:
 
+**For Mac/Linux:**
 ```json
 {
   "mcpServers": {
@@ -72,6 +73,25 @@ Add to `~/.claude/mcp.json`:
       "args": [
         "tsx",
         "/Users/yourname/workspace/eurekalabo/mcp-server/src/index.ts"
+      ],
+      "env": {
+        "EUREKA_API_URL": "https://eurekalabo.162-43-92-100.nip.io",
+        "EUREKA_API_KEY": "pk_live_..."
+      }
+    }
+  }
+}
+```
+
+**For Windows:**
+```json
+{
+  "mcpServers": {
+    "eureka-tasks": {
+      "command": "npx",
+      "args": [
+        "tsx",
+        "C:/workspace/eurekalabo/mcp-server/src/index.ts"
       ],
       "env": {
         "EUREKA_API_URL": "https://eurekalabo.162-43-92-100.nip.io",
