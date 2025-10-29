@@ -364,27 +364,55 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
 ## Example Workflow
 
 \`\`\`
-User: "Add authentication to the API"
+User: "APIに認証を追加して"
 
-Step 1: list_tasks(search: "authentication")
-→ No relevant tasks found
+Step 1: list_tasks(search: "認証")
+→ 該当するタスクが見つかりません
 
 Step 2: create_task({
-  title: "Add JWT authentication to API endpoints",
-  description: "Implement middleware for JWT validation and protect routes"
+  title: "APIエンドポイントにJWT認証を追加",
+  description: "JWT検証のためのミドルウェアを実装し、ルートを保護する"
 })
 → Returns taskId: "task-123"
 
 Step 3: start_work_on_task(taskId: "task-123")
-→ Git baseline captured, work session active
+→ Gitベースラインをキャプチャ、作業セッション開始
 
-Step 4: [Write/Edit files for authentication]
+Step 4: [認証のためのファイルを作成・編集]
 
 Step 5: complete_task_work(
   taskId: "task-123",
-  summary: "Implemented JWT middleware and protected all API routes"
+  summary: "JWTミドルウェアを実装し、すべてのAPIルートを保護しました"
 )
-→ All changes logged, task updated to 'done'
+→ すべての変更がログされ、タスクが'完了'に更新されました
+\`\`\`
+
+## 🇯🇵 CRITICAL: Japanese Content Requirement
+
+**ALL task content MUST be in Japanese:**
+- Task title: タスクのタイトルは日本語で書く
+- Task description: タスクの説明は日本語で書く
+- Task summary: タスクの要約は日本語で書く
+
+**Example (CORRECT):**
+\`\`\`
+create_task({
+  title: "ユーザー認証機能の実装",
+  description: "JWT認証ミドルウェアを追加し、全APIルートを保護する"
+})
+
+complete_task_work({
+  taskId: "task-123",
+  summary: "bcryptを使用したJWT認証を実装しました"
+})
+\`\`\`
+
+**Example (WRONG - Never use English):**
+\`\`\`
+create_task({
+  title: "Add user authentication",  ❌ WRONG!
+  description: "Add JWT middleware"  ❌ WRONG!
+})
 \`\`\`
 
 ## Error Handling
