@@ -30,17 +30,29 @@ cd eurekalabo-mcp
 # Install dependencies
 npm install
 
-# Add to Claude Code (Mac/Linux)
+# Add to Claude Code (Mac/Linux) - from inside the directory
 claude mcp add --transport stdio eureka-tasks \
   --env EUREKA_API_URL=https://eurekalabo.162-43-92-100.nip.io \
   --env EUREKA_API_KEY=pk_live_your_api_key_here \
   -- npx tsx "$(pwd)/src/index.ts"
+
+# OR from anywhere with absolute path (Mac/Linux)
+claude mcp add --transport stdio eureka-tasks \
+  --env EUREKA_API_URL=https://eurekalabo.162-43-92-100.nip.io \
+  --env EUREKA_API_KEY=pk_live_your_api_key_here \
+  -- npx tsx /Users/yourname/workspace/eurekalabo-mcp/src/index.ts
 
 # Add to Claude Code (Windows - run in PowerShell)
 claude mcp add --transport stdio eureka-tasks `
   --env EUREKA_API_URL=https://eurekalabo.162-43-92-100.nip.io `
   --env EUREKA_API_KEY=pk_live_your_api_key_here `
   -- npx tsx "$PWD/src/index.ts"
+
+# OR from anywhere with absolute path (Windows)
+claude mcp add --transport stdio eureka-tasks `
+  --env EUREKA_API_URL=https://eurekalabo.162-43-92-100.nip.io `
+  --env EUREKA_API_KEY=pk_live_your_api_key_here `
+  -- npx tsx C:/workspace/eurekalabo-mcp/src/index.ts
 ```
 
 ### Option 2: Manual Installation
