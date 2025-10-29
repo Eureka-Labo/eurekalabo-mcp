@@ -7,8 +7,8 @@
           "/Users/yujirohikawa/workspace/eurekalabo/mcp-server/src/index.ts"
         ],
         "env": {
-          "EUREKA_API_URL": "https://eurekalabof.162-43-92-100.nip.io",
-          "EUREKA_API_KEY": "pk_live_e707ee668238bb20d76c3f39300287d70aa9a86691ec31d488e7761f168fc108"
+          "EUREKA_API_URL": "https://eurekalabo.162-43-92-100.nip.io",
+          "EUREKA_API_KEY": "pk_live_081c47da0e1863ec6a2d6bd6012ec5aa4c078883a193559b0c892da3b63f7af2"
         }
       }
     }

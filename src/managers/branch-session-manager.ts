@@ -179,17 +179,17 @@ export class BranchSessionManager {
       const taskCount = session.taskIds?.length || 0;
 
       return `
-🎉 All ${taskCount} task(s) in branch "${branchName}" are now completed!
+🎉 ブランチ "${branchName}" の全${taskCount}件のタスクが完了しました！
 
-You can create a pull request using:
+Pull Requestを作成できます:
 \`\`\`
 create_pull_request
 \`\`\`
 
-This will:
-- Generate a PR description from all task summaries and work sessions
-- Link the PR URL to all tasks
-- Update task status in the project
+これにより以下が実行されます:
+- すべてのタスク概要とワークセッションからPR説明を生成
+- PR URLをすべてのタスクにリンク
+- プロジェクト内のタスクステータスを更新
 `;
     } catch (error: any) {
       console.error('Failed to check for PR suggestion:', error.message);

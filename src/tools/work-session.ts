@@ -130,14 +130,34 @@ function formatTaskDescription(summary: string, changes: any): string {
  * Complete work on a task
  * Captures all changes and logs them to task metadata
  * Updates task description with formatted change summary
+ *
+ * Note: Returns only summary statistics to avoid token limit issues.
+ * Full diffs are stored in the database and viewable in the UI.
  */
 export async function completeTaskWork(
   taskId: string,
-  summary: string
+  summary: string,
+  createPR?: boolean
 ): Promise<{
   success: boolean;
   message: string;
-  changes?: any;
+  summary?: {
+    filesChanged: number;
+    linesAdded: number;
+    linesRemoved: number;
+    branch: string;
+    files: Array<{
+      file: string;
+      changeType: string;
+      linesAdded: number;
+      linesRemoved: number;
+    }>;
+  };
+  prCreated?: {
+    prUrl: string;
+    prNumber: number;
+    updatedTasks: number;
+  };
 }> {
   const config = getConfig();
   const workspacePath = config.workspacePath;
@@ -207,23 +227,67 @@ export async function completeTaskWork(
     // Update branch session activity
     await branchSessionManager.updateBranchActivity();
 
-    // Check if we should suggest PR creation
-    const prSuggestion = await branchSessionManager.suggestPRCreation();
-
     // Remove active session
     activeSessions.delete(taskId);
 
     let completionMessage = `✅ 作業セッションを完了しました。\n- ファイル変更: ${changes.statistics.filesChanged}個\n- 追加: +${changes.statistics.linesAdded}行\n- 削除: -${changes.statistics.linesRemoved}行\n\nタスク説明とメタデータを更新しました。`;
 
-    // Add PR suggestion if available
-    if (prSuggestion) {
-      completionMessage += `\n\n${prSuggestion}`;
+    // Handle PR creation if requested
+    let prCreatedInfo = undefined;
+
+    if (createPR) {
+      // Check if all tasks in branch are completed
+      const allCompleted = await branchSessionManager.areAllTasksCompleted();
+      const session = await branchSessionManager.getBranchSession();
+
+      if (allCompleted && session && !session.prUrl) {
+        // Automatically create PR
+        try {
+          const { createPullRequest } = await import('./pr-tools.js');
+          const prResult = await createPullRequest({});
+
+          if (prResult.success && prResult.prUrl) {
+            prCreatedInfo = {
+              prUrl: prResult.prUrl,
+              prNumber: prResult.prNumber!,
+              updatedTasks: prResult.updatedTasks!,
+            };
+
+            completionMessage += `\n\n🎉 Pull Requestを自動作成しました！\n- PR URL: ${prResult.prUrl}\n- PR番号: #${prResult.prNumber}\n- 連携タスク数: ${prResult.updatedTasks}件`;
+          }
+        } catch (prError: any) {
+          completionMessage += `\n\n⚠️ PR作成に失敗しました: ${prError.message}\n手動で create_pull_request を実行してください。`;
+        }
+      } else if (!allCompleted) {
+        completionMessage += `\n\n📋 ブランチ内に未完了のタスクがあります。すべてのタスク完了後にPRを作成できます。`;
+      } else if (session?.prUrl) {
+        completionMessage += `\n\n✅ このブランチのPRは既に存在します: ${session.prUrl}`;
+      }
+    } else {
+      // Show suggestion if not creating PR automatically
+      const prSuggestion = await branchSessionManager.suggestPRCreation();
+      if (prSuggestion) {
+        completionMessage += `\n\n${prSuggestion}`;
+      }
     }
 
+    // Return only summary statistics, not full diffs (to avoid token limit issues)
     return {
       success: true,
       message: completionMessage,
-      changes: workSession,
+      summary: {
+        filesChanged: changes.statistics.filesChanged,
+        linesAdded: changes.statistics.linesAdded,
+        linesRemoved: changes.statistics.linesRemoved,
+        branch: changes.branch,
+        files: changes.changes.map((c: any) => ({
+          file: c.file,
+          changeType: c.changeType,
+          linesAdded: c.linesAdded,
+          linesRemoved: c.linesRemoved,
+        })),
+      },
+      prCreated: prCreatedInfo,
     };
   } catch (error: any) {
     return {

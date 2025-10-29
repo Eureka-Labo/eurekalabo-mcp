@@ -9,6 +9,9 @@ Model Context Protocol (MCP) server for Eureka Labo task management with automat
 - 📊 **Change Logging** - Automatically capture and log file changes
 - 🎨 **React Diff Support** - Generate diffs compatible with react-diff-viewer
 - 🔐 **API Key Auth** - Secure project-scoped access
+- 🤖 **Auto Task Creation** - Automatically creates tasks from git changes when creating PRs without tracked tasks
+- 🇯🇵 **Japanese Content** - Task descriptions and PR content auto-generated in Japanese
+- 🚦 **Task Enforcement** - Optional prompt to require task creation before coding work (see [TASK_ENFORCEMENT.md](TASK_ENFORCEMENT.md))
 
 ## Prerequisites
 
@@ -192,11 +195,20 @@ Add to `~/.claude/mcp.json`:
   "summary": "bcryptを使用したJWT認証を実装しました"
 }
 
+# OR automatically create PR when completing the task
+@eureka-tasks complete_task_work {
+  "taskId": "cmXXXXXXXXXXX",
+  "summary": "bcryptを使用したJWT認証を実装しました",
+  "createPR": true
+}
+
 # This will:
 # - Capture all changes from baseline (includes uncommitted changes!)
 # - Store full diffs in task metadata (for react-diff-viewer in UI)
 # - Update task description with formatted change summary in Japanese
 # - Update task status to "done"
+# - If createPR=true and all branch tasks are done: Automatically create a Pull Request
+# - If createPR=false: Suggest creating a pull request if appropriate
 ```
 
 **重要な変更点:**
@@ -228,6 +240,43 @@ bcryptを使用したJWT認証を実装しました
 ---
 
 *詳細な差分はタスクのメタデータに保存されており、UIでreact-diff-viewerを使用して表示できます。*
+```
+
+### Pull Request Creation
+
+```bash
+# List tasks in current branch
+@eureka-tasks list_branch_tasks
+
+# Create PR (with tracked tasks)
+@eureka-tasks create_pull_request
+
+# Create PR with custom title and base branch
+@eureka-tasks create_pull_request {
+  "title": "新機能: ユーザー認証の実装",
+  "baseBranch": "develop"
+}
+
+# 🤖 Smart PR Creation - No Tasks Required!
+# If you create a PR without any tracked tasks, the system will:
+# 1. Analyze all git changes in your branch
+# 2. Auto-generate a Japanese task title from branch name
+#    - feature/add-auth → "add authの実装"
+#    - fix/user-login → "user loginの修正"
+# 3. Create task with complete change summary in Japanese
+# 4. Attach all git diffs to the task
+# 5. Create the PR with proper task linking
+
+# Example: Direct PR from feature branch without start_work_on_task
+git checkout -b feature/add-authentication
+# ... make your changes ...
+git commit -m "Add JWT authentication"
+@eureka-tasks create_pull_request
+
+# Result:
+# ✅ Pull Requestを作成しました！
+# PR URL: https://github.com/...
+# 📝 タスクを自動作成しました: add authenticationの実装
 ```
 
 ### Utilities
@@ -283,6 +332,9 @@ bcryptを使用したJWT認証を実装しました
      - 削除: -12行
 
    タスク説明とメタデータを更新しました。
+
+   💡 このブランチで複数のタスクが完了しています。
+   create_pull_requestツールを使用してPRを作成できます。
 
 6. Eureka Labo UIで表示:
    - タスクステータス: "完了"

@@ -131,7 +131,9 @@ export class EurekaAPIClient {
     await this.ensureInitialized();
     const projectId = this.getProjectId();
 
-    const response = await this.client.get(`/api/v1/projects/${projectId}/tasks`, {
+    // Use MCP-optimized endpoint that returns only essential fields
+    // This significantly reduces token usage by excluding relations and metadata
+    const response = await this.client.get(`/api/v1/projects/${projectId}/tasks/mcp`, {
       params: filters,
     });
     return response.data.tasks || response.data;

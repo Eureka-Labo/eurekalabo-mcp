@@ -10,6 +10,8 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  ListPromptsRequestSchema,
+  GetPromptRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 
 import { getConfig } from './config.js';
@@ -41,6 +43,7 @@ const server = new Server(
   {
     capabilities: {
       tools: {},
+      prompts: {},
     },
   }
 );
@@ -180,7 +183,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       {
         name: 'complete_task_work',
         description:
-          'Complete work on a task. Captures all git changes since work started and logs them to the task.',
+          'Complete work on a task. Captures all git changes since work started and logs them to the task. Optionally creates a Pull Request automatically if all branch tasks are completed.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -191,6 +194,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             summary: {
               type: 'string',
               description: 'Brief summary of work completed',
+            },
+            createPR: {
+              type: 'boolean',
+              description: 'If true, automatically creates a Pull Request when all branch tasks are completed (default: false)',
             },
           },
           required: ['taskId', 'summary'],
@@ -262,13 +269,13 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       {
         name: 'create_pull_request',
         description:
-          'Create a GitHub pull request for all tasks in the current branch. Generates PR description from work sessions. Requires GitHub integration configured for the project.',
+          'Create a GitHub pull request for all tasks in the current branch. Generates PR description from work sessions. If no tasks exist in the branch, automatically creates a task with Japanese title and description from git changes. PR content and auto-created task content are in Japanese. Requires GitHub integration configured for the project.',
         inputSchema: {
           type: 'object',
           properties: {
             title: {
               type: 'string',
-              description: 'PR title (optional - will auto-generate from tasks if not provided)',
+              description: 'PR title in Japanese (optional - will auto-generate from tasks if not provided)',
             },
             baseBranch: {
               type: 'string',
@@ -281,11 +288,130 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
   };
 });
 
+// ===== Prompt Definitions =====
+
+server.setRequestHandler(ListPromptsRequestSchema, async () => {
+  return {
+    prompts: [
+      {
+        name: 'task-enforcement',
+        description: 'Enforces task creation and work session workflow before any coding',
+      },
+    ],
+  };
+});
+
+server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+  const { name } = request.params;
+
+  if (name === 'task-enforcement') {
+    return {
+      messages: [
+        {
+          role: 'user',
+          content: {
+            type: 'text',
+            text: `# 🔴 CRITICAL: Eureka Tasks Work Session Enforcement
+
+**BEFORE ANY CODING WORK, YOU MUST:**
+
+1. **Check for relevant tasks**: Call \`list_tasks\` to search for existing tasks
+   - Search by keywords from the user's request
+   - Check if any task matches the current work
+
+2. **If NO relevant task exists**: Call \`create_task\` (REQUIRED, NOT OPTIONAL)
+   - Title: Clear description of what will be implemented
+   - Description: Brief technical approach and scope
+   - This is MANDATORY before any code changes
+
+3. **Start work session**: Call \`start_work_on_task\` with the task ID
+   - Captures git baseline for change tracking
+   - Requires clean working directory
+   - This MUST happen before writing any code
+
+4. **Do the coding work**
+   - All file edits, writes, and code changes happen here
+   - Git will automatically track all changes from baseline
+
+5. **Complete work session**: Call \`complete_task_work\` when done
+   - Provide a brief summary of what was implemented
+   - Automatically captures all git changes and logs them to the task
+   - Updates task status and creates complete audit trail
+
+## Why This Matters
+
+- ✅ **Full Audit Trail**: Every code change is tracked and linked to a task
+- ✅ **Git Integration**: Automatic git baseline capture and change tracking
+- ✅ **Project Visibility**: All work visible in Eureka Tasks dashboard
+- ✅ **Team Collaboration**: Others can see what you're working on
+- ✅ **Change History**: Complete history of what changed and why
+
+## Enforcement
+
+**🚫 BLOCKED ACTIONS WITHOUT ACTIVE WORK SESSION:**
+- Writing new files (\`Write\` tool)
+- Editing existing files (\`Edit\` tool)
+- Running build/deploy commands that modify code
+- Git commits (should be done through \`complete_task_work\`)
+
+**✅ ALLOWED ACTIONS WITHOUT WORK SESSION:**
+- Reading files (\`Read\` tool)
+- Searching code (\`Grep\`, \`Glob\`)
+- Listing tasks (\`list_tasks\`)
+- Creating tasks (\`create_task\`)
+- Starting work sessions (\`start_work_on_task\`)
+
+## Example Workflow
+
+\`\`\`
+User: "Add authentication to the API"
+
+Step 1: list_tasks(search: "authentication")
+→ No relevant tasks found
+
+Step 2: create_task({
+  title: "Add JWT authentication to API endpoints",
+  description: "Implement middleware for JWT validation and protect routes"
+})
+→ Returns taskId: "task-123"
+
+Step 3: start_work_on_task(taskId: "task-123")
+→ Git baseline captured, work session active
+
+Step 4: [Write/Edit files for authentication]
+
+Step 5: complete_task_work(
+  taskId: "task-123",
+  summary: "Implemented JWT middleware and protected all API routes"
+)
+→ All changes logged, task updated to 'done'
+\`\`\`
+
+## Error Handling
+
+If you attempt to code without a work session:
+- STOP immediately
+- Inform the user: "I need to create a task first"
+- Follow the workflow above
+
+This is NON-NEGOTIABLE. No exceptions.`,
+          },
+        },
+      ],
+    };
+  }
+
+  throw new Error(`Unknown prompt: ${name}`);
+});
+
 // ===== Tool Execution Handler =====
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   try {
     const { name, arguments: args } = request.params;
+
+    // Type guard for args
+    const safeArgs = args ?? {};
 
     switch (name) {
       // Task Management
@@ -294,7 +420,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [
             {
               type: 'text',
-              text: JSON.stringify(await listTasks(args as any), null, 2),
+              text: JSON.stringify(await listTasks(safeArgs as any), null, 2),
             },
           ],
         };
@@ -304,7 +430,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [
             {
               type: 'text',
-              text: JSON.stringify(await getTask(args.taskId as string), null, 2),
+              text: JSON.stringify(await getTask(safeArgs.taskId as string), null, 2),
             },
           ],
         };
@@ -314,7 +440,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [
             {
               type: 'text',
-              text: JSON.stringify(await createTask(args as any), null, 2),
+              text: JSON.stringify(await createTask(safeArgs as any), null, 2),
             },
           ],
         };
@@ -325,7 +451,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             {
               type: 'text',
               text: JSON.stringify(
-                await updateTask(args.taskId as string, args as any),
+                await updateTask(safeArgs.taskId as string, safeArgs as any),
                 null,
                 2
               ),
@@ -340,7 +466,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             {
               type: 'text',
               text: JSON.stringify(
-                await startWorkOnTask(args.taskId as string),
+                await startWorkOnTask(safeArgs.taskId as string),
                 null,
                 2
               ),
@@ -355,8 +481,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               type: 'text',
               text: JSON.stringify(
                 await completeTaskWork(
-                  args.taskId as string,
-                  args.summary as string
+                  safeArgs.taskId as string,
+                  safeArgs.summary as string,
+                  safeArgs.createPR as boolean | undefined
                 ),
                 null,
                 2
@@ -385,7 +512,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             {
               type: 'text',
               text: JSON.stringify(
-                await cancelWorkSession(args.taskId as string),
+                await cancelWorkSession(safeArgs.taskId as string),
                 null,
                 2
               ),
@@ -415,8 +542,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               type: 'text',
               text: JSON.stringify(
                 await uploadTaskAttachment(
-                  args.taskId as string,
-                  args.filePath as string
+                  safeArgs.taskId as string,
+                  safeArgs.filePath as string
                 ),
                 null,
                 2
@@ -446,7 +573,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             {
               type: 'text',
               text: JSON.stringify(
-                await createPullRequest(args as any),
+                await createPullRequest(safeArgs as any),
                 null,
                 2
               ),
