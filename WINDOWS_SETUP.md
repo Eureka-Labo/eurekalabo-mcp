@@ -114,10 +114,30 @@ Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
 
 ## Installing CLI Globally
 
-### Using PowerShell Script
+### Using PowerShell Script (Recommended)
+
+The PowerShell script automatically checks PATH configuration:
 
 ```powershell
 .\make.ps1 install
+```
+
+**What it does:**
+1. Builds the CLI
+2. Runs `npm link` to install globally
+3. **Checks if npm global directory is in PATH**
+4. **Provides copy-paste commands if PATH setup needed**
+5. Tests if `eurekaclaude` command works
+
+**Example output if PATH needs configuration:**
+```
+✅ Installation complete!
+⚠️  npm global directory not found in PATH!
+
+To use 'eurekaclaude' command, add npm global directory to PATH:
+  [Environment]::SetEnvironmentVariable('Path', "C:\Users\...\npm;$env:Path", 'User')
+
+After adding to PATH, restart PowerShell/Terminal
 ```
 
 ### Manual Installation
@@ -127,13 +147,47 @@ cd cli
 npm link
 ```
 
-**If you get permission errors:**
+### PATH Configuration (Important!)
 
-1. Run PowerShell as Administrator:
-   - Right-click PowerShell
-   - Select "Run as Administrator"
+**npm link relies on npm's global directory being in PATH.** By default, Node.js installation adds this, but sometimes it's missing.
 
-2. Or configure npm global directory:
+#### Check if PATH is configured:
+
+```powershell
+# Check npm global directory
+npm config get prefix
+
+# Check if it's in PATH
+$env:Path -split ';' | Select-String npm
+```
+
+#### Add to PATH (if needed):
+
+**Option 1: System-wide (requires Administrator)**
+
+```powershell
+# Run PowerShell as Administrator, then:
+$npmPath = npm config get prefix
+[Environment]::SetEnvironmentVariable(
+    "Path",
+    "$npmPath;$env:Path",
+    "Machine"
+)
+```
+
+**Option 2: Current user only (no admin needed)**
+
+```powershell
+$npmPath = npm config get prefix
+[Environment]::SetEnvironmentVariable(
+    "Path",
+    "$npmPath;" + [Environment]::GetEnvironmentVariable("Path", "User"),
+    "User"
+)
+```
+
+**Option 3: Configure npm to use custom directory**
+
 ```powershell
 # Create directory for global packages
 mkdir "$env:APPDATA\npm-global"
@@ -141,13 +195,26 @@ mkdir "$env:APPDATA\npm-global"
 # Configure npm to use it
 npm config set prefix "$env:APPDATA\npm-global"
 
-# Add to PATH
+# Add to PATH (user-level, no admin needed)
 [Environment]::SetEnvironmentVariable(
     "Path",
     "$env:APPDATA\npm-global;" + [Environment]::GetEnvironmentVariable("Path", "User"),
     "User"
 )
 ```
+
+**After PATH changes:** Restart PowerShell/Terminal for changes to take effect.
+
+### Permission Errors
+
+If you get permission errors during `npm link`:
+
+1. **Run PowerShell as Administrator:**
+   - Right-click PowerShell
+   - Select "Run as Administrator"
+   - Run `.\make.ps1 install` again
+
+2. **Or use Option 3 above** to configure npm with user-level directory
 
 ## After Installation
 

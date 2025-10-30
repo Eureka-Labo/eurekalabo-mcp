@@ -120,7 +120,55 @@ function Install-CLI {
     Write-Host ""
     Write-Success "✅ Installation complete!"
     Write-Host ""
-    Write-Info "You can now use: eurekaclaude [command]"
+
+    # Verify PATH contains npm global directory
+    $npmPrefix = npm config get prefix
+    $npmBinPath = Join-Path $npmPrefix ""
+    $pathContainsNpm = $env:Path -split ';' | Where-Object { $_ -like "*$npmPrefix*" }
+
+    if (-not $pathContainsNpm) {
+        Write-Warning "⚠️  npm global directory not found in PATH!"
+        Write-Host ""
+        Write-Info "To use 'eurekaclaude' command, add npm global directory to PATH:"
+        Write-Host ""
+        Write-Host "  Run this command in PowerShell as Administrator:" -ForegroundColor Yellow
+        Write-Host "  [Environment]::SetEnvironmentVariable(" -ForegroundColor Cyan -NoNewline
+        Write-Host "'Path'" -ForegroundColor White -NoNewline
+        Write-Host ", " -ForegroundColor Cyan -NoNewline
+        Write-Host "`"$npmPrefix;`$env:Path`"" -ForegroundColor White -NoNewline
+        Write-Host ", " -ForegroundColor Cyan -NoNewline
+        Write-Host "'Machine'" -ForegroundColor White -NoNewline
+        Write-Host ")" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "  Or for current user only:" -ForegroundColor Yellow
+        Write-Host "  [Environment]::SetEnvironmentVariable(" -ForegroundColor Cyan -NoNewline
+        Write-Host "'Path'" -ForegroundColor White -NoNewline
+        Write-Host ", " -ForegroundColor Cyan -NoNewline
+        Write-Host "`"$npmPrefix;`" + [Environment]::GetEnvironmentVariable('Path', 'User')" -ForegroundColor White -NoNewline
+        Write-Host ", " -ForegroundColor Cyan -NoNewline
+        Write-Host "'User'" -ForegroundColor White -NoNewline
+        Write-Host ")" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Info "After adding to PATH, restart PowerShell/Terminal"
+        Write-Host ""
+    } else {
+        Write-Success "✅ npm global directory is in PATH"
+        Write-Host ""
+    }
+
+    # Test if eurekaclaude command is available
+    Write-Info "Testing eurekaclaude command..."
+    $testCommand = Get-Command eurekaclaude -ErrorAction SilentlyContinue
+
+    if ($testCommand) {
+        Write-Success "✅ eurekaclaude command is ready!"
+        Write-Host ""
+        Write-Info "You can now use: eurekaclaude [command]"
+    } else {
+        Write-Warning "⚠️  'eurekaclaude' command not found in current session"
+        Write-Info "Please restart PowerShell/Terminal, then try: eurekaclaude --help"
+    }
+
     Write-Host ""
     Write-Info "Available commands:"
     Write-Host "  eurekaclaude build              - Build MCP server and CLI"
