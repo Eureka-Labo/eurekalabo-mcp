@@ -5,7 +5,7 @@
  * Runs the compiled TypeScript or falls back to tsx
  */
 
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { dirname, join } from 'path';
 import { existsSync } from 'fs';
 import { spawn } from 'child_process';
@@ -19,7 +19,8 @@ const srcIndex = join(__dirname, '../src/index.ts');
 // Try to run from dist first, fall back to tsx
 if (existsSync(distIndex)) {
   // Production: import compiled JS
-  await import(distIndex);
+  // Convert Windows path to file:// URL for ESM compatibility
+  await import(pathToFileURL(distIndex).href);
 } else if (existsSync(srcIndex)) {
   // Development: use tsx
   const tsx = spawn('npx', ['tsx', srcIndex, ...process.argv.slice(2)], {
