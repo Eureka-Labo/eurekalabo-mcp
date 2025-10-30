@@ -35,6 +35,13 @@ Perfect for:
 - Optimized for Japanese development teams
 - Bilingual documentation support
 
+### 🧠 AI-Powered Sub-Agents
+Leverage Claude Code specialist agents:
+- 📝 Smart commit message generation
+- 📄 AI-powered PR descriptions
+- 🔍 Environment validation
+- ⚙️ Intelligent project setup
+
 ### 🔧 Complete Setup
 One command installs:
 - Eureka Tasks MCP server
@@ -123,27 +130,176 @@ eurekaclaude init
 eurekaclaude init --api-url https://your-api.com --api-key pk_xxx
 ```
 
+### eurekaclaude hooks install
+Install work session enforcement hooks
+
+```bash
+eurekaclaude hooks install
+eurekaclaude hooks install --force
+eurekaclaude hooks install --workspace /path/to/project
+```
+
+### eurekaclaude hooks status
+Check hook installation status
+
+```bash
+eurekaclaude hooks status
+```
+
+### eurekaclaude hooks uninstall
+Remove hook configuration
+
+```bash
+eurekaclaude hooks uninstall
+```
+
+**See detailed hooks documentation**: [CLI_HOOKS.md](../CLI_HOOKS.md)
+
+## Sub-Agent Commands
+
+Leverage Claude Code specialist agents for intelligent automation.
+
+**First-time setup** (required once per project):
+```bash
+eurekaclaude subagents configure
+# Restart Claude Desktop after configuration
+```
+
+### eurekaclaude subagents configure
+Configure sub-agent tool permissions in Claude Code
+
+```bash
+# Initial setup
+eurekaclaude subagents configure
+
+# Force reconfiguration
+eurekaclaude subagents configure --force
+
+# Configure specific project
+eurekaclaude subagents configure --workspace /path/to/project
+```
+
+**What it does**:
+- Adds permissions for 4 sub-agent MCP tools to `.claude/settings.local.json`
+- Enables eureka-tasks MCP server
+- Preserves existing configuration
+
+**After running**: Restart Claude Desktop to apply changes
+
+### eurekaclaude commit
+Generate smart commit messages using technical-writer sub-agent
+
+```bash
+# Stage your changes first
+git add src/auth.ts tests/auth.test.ts
+
+# Generate smart commit message instructions
+eurekaclaude commit
+
+# Copy output and paste into Claude Code
+# Claude launches technical-writer sub-agent automatically
+```
+
+**Output**: Professional commit message following Conventional Commits format
+
+### eurekaclaude pr
+Generate comprehensive PR descriptions using technical-writer sub-agent
+
+```bash
+# On a feature branch
+eurekaclaude pr
+
+# Specify custom base branch
+eurekaclaude pr --base-branch develop
+```
+
+**Output**: GitHub-ready PR description with Japanese/English summaries, testing checklist, and task links
+
+### eurekaclaude validate
+Validate eurekaclaude setup using devops-architect sub-agent
+
+```bash
+# Quick validation
+eurekaclaude validate
+
+# Validate specific project
+eurekaclaude validate --workspace /path/to/project
+```
+
+**Output**: Health report with passing checks, warnings, critical issues, and fix commands
+
+### eurekaclaude setup smart
+Generate intelligent project configuration using system-architect sub-agent
+
+```bash
+# Auto-detect project type
+eurekaclaude setup smart
+
+# Specify project type
+eurekaclaude setup smart --type react
+```
+
+**Output**: Complete configuration package with MCP setup, hooks, and templates
+
+**See detailed sub-agent documentation**: [CLI_SUBAGENT_GUIDE.md](../CLI_SUBAGENT_GUIDE.md)
+
+## Setup Commands
+
+### eurekaclaude build
+Build MCP server and CLI
+
+```bash
+eurekaclaude build
+eurekaclaude build --workspace /path/to/project
+```
+
 ### eurekaclaude status
-Show current framework configuration and status
+Show system status including build state, git branch, and active session
 
 ```bash
 eurekaclaude status
+eurekaclaude status --workspace /path/to/project
 ```
 
-### eurekaclaude update
-Update to latest version
+### eurekaclaude install-deps
+Install all dependencies for MCP server and CLI
 
 ```bash
-eurekaclaude update
+eurekaclaude install-deps
+eurekaclaude install-deps --workspace /path/to/project
 ```
 
-### eurekaclaude uninstall
-Remove framework configuration
+### eurekaclaude clean
+Clean build artifacts
 
 ```bash
-eurekaclaude uninstall
-eurekaclaude uninstall --keep-config
+eurekaclaude clean                    # Remove dist directories only
+eurekaclaude clean --all             # Remove dist and node_modules
+eurekaclaude clean --workspace /path/to/project
 ```
+
+### eurekaclaude quickstart
+Complete one-command setup (install deps, build, install hooks)
+
+```bash
+eurekaclaude quickstart
+eurekaclaude quickstart --workspace /path/to/project
+```
+
+**What it does:**
+1. Installs all dependencies
+2. Builds MCP server and CLI
+3. Installs work session hooks (guidance mode)
+
+### eurekaclaude link
+Link CLI globally for `eurekaclaude` command access
+
+```bash
+eurekaclaude link
+eurekaclaude link --workspace /path/to/project
+```
+
+After linking, you can use `eurekaclaude` from any directory.
 
 ## Slash Commands
 

@@ -28,11 +28,19 @@ import {
   completeTaskWork,
   getActiveSessions,
   cancelWorkSession,
+  initializeActiveSessions,
 } from './tools/work-session.js';
 import {
   listBranchTasks,
   createPullRequest,
 } from './tools/pr-tools.js';
+import {
+  createSubAgentInvocation,
+  generateCommitMessagePrompt,
+  generatePRDescriptionPrompt,
+  generateSetupValidationPrompt,
+  generateSmartSetupPrompt,
+} from './tools/subagent-helpers.js';
 
 // Initialize MCP server
 const server = new Server(
@@ -284,6 +292,82 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           },
         },
       },
+
+      // Sub-Agent Integration Tools
+      {
+        name: 'generate_smart_commit_message',
+        description:
+          'Use technical-writer sub-agent to analyze git changes and generate an intelligent commit message following Conventional Commits format with Japanese summary.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            gitDiff: {
+              type: 'string',
+              description: 'Git diff output to analyze',
+            },
+            taskContext: {
+              type: 'object',
+              description: 'Optional task context for additional information',
+            },
+          },
+          required: ['gitDiff'],
+        },
+      },
+      {
+        name: 'generate_smart_pr_description',
+        description:
+          'Use technical-writer sub-agent to generate comprehensive PR description from branch tasks and git changes. Returns GitHub-ready markdown description in Japanese and English.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            branchTasks: {
+              type: 'array',
+              description: 'Array of task objects from the branch',
+            },
+            gitDiff: {
+              type: 'string',
+              description: 'Git diff summary for the branch',
+            },
+            baseBranch: {
+              type: 'string',
+              description: 'Base branch name (default: main)',
+            },
+          },
+          required: ['branchTasks', 'gitDiff'],
+        },
+      },
+      {
+        name: 'validate_setup',
+        description:
+          'Use devops-architect sub-agent to comprehensively validate eurekaclaude installation, configuration, and system health. Returns detailed validation report.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            projectPath: {
+              type: 'string',
+              description: 'Project path to validate (defaults to workspace path)',
+            },
+          },
+        },
+      },
+      {
+        name: 'generate_smart_setup',
+        description:
+          'Use system-architect sub-agent to analyze project and generate optimal eurekaclaude configuration including claude_desktop_config.json, hooks, and task templates.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            projectPath: {
+              type: 'string',
+              description: 'Project path to analyze (defaults to workspace path)',
+            },
+            projectType: {
+              type: 'string',
+              description: 'Optional project type hint (react, vue, python, go, etc.)',
+            },
+          },
+        },
+      },
     ],
   };
 });
@@ -311,80 +395,109 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
           role: 'user',
           content: {
             type: 'text',
-            text: `# 🔴 CRITICAL: Eureka Tasks Work Session Enforcement
+            text: `# 🤖 AUTOMATIC: Eureka Tasks Workflow
 
-**BEFORE ANY CODING WORK, YOU MUST:**
+**YOU MUST DO THIS AUTOMATICALLY - DON'T ASK THE USER**
 
-1. **Check for relevant tasks**: Call \`list_tasks\` to search for existing tasks
-   - Search by keywords from the user's request
-   - Check if any task matches the current work
+## 🎯 Automatic Workflow (Execute This Proactively)
 
-2. **If NO relevant task exists**: Call \`create_task\` (REQUIRED, NOT OPTIONAL)
-   - Title: Clear description of what will be implemented
-   - Description: Brief technical approach and scope
-   - This is MANDATORY before any code changes
+When user requests ANY coding work, AUTOMATICALLY execute these steps:
 
-3. **Start work session**: Call \`start_work_on_task\` with the task ID
-   - Captures git baseline for change tracking
-   - Requires clean working directory
-   - This MUST happen before writing any code
+### Step 1: Check Active Session (AUTOMATIC)
+\`\`\`
+mcp__eureka-tasks__get_active_sessions
+\`\`\`
 
-4. **Do the coding work**
-   - All file edits, writes, and code changes happen here
-   - Git will automatically track all changes from baseline
+### Step 2: If No Session → Auto-Create Task (AUTOMATIC)
 
-5. **Complete work session**: Call \`complete_task_work\` when done
-   - Provide a brief summary of what was implemented
-   - Automatically captures all git changes and logs them to the task
-   - Updates task status and creates complete audit trail
+**a. Search first:**
+\`\`\`
+mcp__eureka-tasks__list_tasks({ search: "keywords from user request" })
+\`\`\`
 
-## Why This Matters
+**b. If no match → Create immediately (NO USER CONFIRMATION NEEDED):**
+\`\`\`
+mcp__eureka-tasks__create_task({
+  title: "ユーザーの依頼を日本語で簡潔に",
+  description: "実装内容と技術的アプローチを日本語で"
+})
+\`\`\`
 
-- ✅ **Full Audit Trail**: Every code change is tracked and linked to a task
-- ✅ **Git Integration**: Automatic git baseline capture and change tracking
-- ✅ **Project Visibility**: All work visible in Eureka Tasks dashboard
-- ✅ **Team Collaboration**: Others can see what you're working on
-- ✅ **Change History**: Complete history of what changed and why
+**c. Start session immediately:**
+\`\`\`
+mcp__eureka-tasks__start_work_on_task({ taskId: "returned-id" })
+\`\`\`
 
-## Enforcement
+### Step 3: Code (NOW SAFE TO WRITE/EDIT)
 
-**🚫 BLOCKED ACTIONS WITHOUT ACTIVE WORK SESSION:**
-- Writing new files (\`Write\` tool)
-- Editing existing files (\`Edit\` tool)
-- Running build/deploy commands that modify code
-- Git commits (should be done through \`complete_task_work\`)
+### Step 4: Complete When Done (AUTOMATIC)
+\`\`\`
+mcp__eureka-tasks__complete_task_work({
+  taskId: "task-id",
+  summary: "実装内容の要約を日本語で"
+})
+\`\`\`
 
-**✅ ALLOWED ACTIONS WITHOUT WORK SESSION:**
-- Reading files (\`Read\` tool)
-- Searching code (\`Grep\`, \`Glob\`)
-- Listing tasks (\`list_tasks\`)
-- Creating tasks (\`create_task\`)
-- Starting work sessions (\`start_work_on_task\`)
+## 🚨 CRITICAL RULES
 
-## Example Workflow
+1. **BE PROACTIVE**: Don't ask user "Should I create a task?" - JUST DO IT
+2. **BE AUTOMATIC**: Execute workflow without user intervention
+3. **BE JAPANESE**: ALL content in Japanese (title, description, summary)
+4. **BE FAST**: Don't slow down the user's workflow
+5. **BE SEAMLESS**: User shouldn't notice task creation
+
+## ✅ CORRECT Example
 
 \`\`\`
-User: "APIに認証を追加して"
+User: "Add authentication to the API"
 
-Step 1: list_tasks(search: "認証")
-→ 該当するタスクが見つかりません
+Claude (automatically, internally):
+1. get_active_sessions → No session
+2. list_tasks({ search: "authentication API" }) → No match
+3. create_task({
+     title: "API認証機能の追加",
+     description: "APIエンドポイントに認証機能を実装する"
+   }) → task-123
+4. start_work_on_task({ taskId: "task-123" })
+5. Tell user: "認証機能の実装を開始します"
+6. [Proceed with implementation]
+7. When done: complete_task_work(...)
+\`\`\`
 
-Step 2: create_task({
-  title: "APIエンドポイントにJWT認証を追加",
-  description: "JWT検証のためのミドルウェアを実装し、ルートを保護する"
-})
-→ Returns taskId: "task-123"
+## ❌ WRONG Example
 
-Step 3: start_work_on_task(taskId: "task-123")
-→ Gitベースラインをキャプチャ、作業セッション開始
+\`\`\`
+User: "Add authentication"
 
-Step 4: [認証のためのファイルを作成・編集]
+Claude: "Would you like me to create a task for this?" ❌ DON'T ASK!
+Claude: "Should I start a work session?" ❌ DON'T ASK!
+Claude: Creating task with title "Add authentication" ❌ NOT IN JAPANESE!
+\`\`\`
 
-Step 5: complete_task_work(
-  taskId: "task-123",
-  summary: "JWTミドルウェアを実装し、すべてのAPIルートを保護しました"
-)
-→ すべての変更がログされ、タスクが'完了'に更新されました
+## 🎯 Task Title Generation
+
+Auto-generate from user's natural language:
+- "fix the bug" → "バグの修正"
+- "add tests" → "テストの追加"
+- "refactor code" → "コードのリファクタリング"
+- "implement feature X" → "機能Xの実装"
+
+## 🔄 Quick Flow
+
+\`\`\`
+User Request
+↓
+get_active_sessions (automatic)
+↓
+No session? → list_tasks (automatic)
+↓
+No match? → create_task (automatic, Japanese)
+↓
+start_work_on_task (automatic)
+↓
+CODE (user sees this part)
+↓
+complete_task_work (automatic when done)
 \`\`\`
 
 ## 🇯🇵 CRITICAL: Japanese Content Requirement
@@ -609,6 +722,89 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           ],
         };
 
+      // Sub-Agent Integration Tools
+      case 'generate_smart_commit_message': {
+        const prompt = generateCommitMessagePrompt(
+          safeArgs.gitDiff as string,
+          safeArgs.taskContext
+        );
+        const invocation = createSubAgentInvocation(
+          'technical-writer',
+          prompt,
+          'Generate intelligent commit message'
+        );
+        return {
+          content: [
+            {
+              type: 'text',
+              text: invocation,
+            },
+          ],
+        };
+      }
+
+      case 'generate_smart_pr_description': {
+        const prompt = generatePRDescriptionPrompt(
+          safeArgs.branchTasks as any[],
+          safeArgs.gitDiff as string,
+          safeArgs.baseBranch as string
+        );
+        const invocation = createSubAgentInvocation(
+          'technical-writer',
+          prompt,
+          'Generate comprehensive PR description'
+        );
+        return {
+          content: [
+            {
+              type: 'text',
+              text: invocation,
+            },
+          ],
+        };
+      }
+
+      case 'validate_setup': {
+        const config = getConfig();
+        const projectPath = (safeArgs.projectPath as string) || config.workspacePath;
+        const prompt = generateSetupValidationPrompt(projectPath);
+        const invocation = createSubAgentInvocation(
+          'devops-architect',
+          prompt,
+          'Validate eurekaclaude setup'
+        );
+        return {
+          content: [
+            {
+              type: 'text',
+              text: invocation,
+            },
+          ],
+        };
+      }
+
+      case 'generate_smart_setup': {
+        const config = getConfig();
+        const projectPath = (safeArgs.projectPath as string) || config.workspacePath;
+        const prompt = generateSmartSetupPrompt(
+          projectPath,
+          safeArgs.projectType as string
+        );
+        const invocation = createSubAgentInvocation(
+          'system-architect',
+          prompt,
+          'Generate smart setup configuration'
+        );
+        return {
+          content: [
+            {
+              type: 'text',
+              text: invocation,
+            },
+          ],
+        };
+      }
+
       default:
         throw new Error(`Unknown tool: ${name}`);
     }
@@ -641,6 +837,9 @@ async function main() {
     console.error(`[MCP] Starting Eureka Labo MCP Server`);
     console.error(`[MCP] API URL: ${config.apiUrl}`);
     console.error(`[MCP] Workspace: ${config.workspacePath}`);
+
+    // Initialize active sessions from persisted data
+    initializeActiveSessions(config.workspacePath);
 
     const transport = new StdioServerTransport();
     await server.connect(transport);

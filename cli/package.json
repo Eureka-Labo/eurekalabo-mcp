@@ -2,6 +2,7 @@
   "name": "@eurekalabo/eurekaclaude",
   "version": "1.0.0",
   "description": "EurekaClaude - Task-driven development framework with Eureka Tasks integration",
+  "type": "module",
   "bin": {
     "eurekaclaude": "./bin/eurekaclaude.js"
   },

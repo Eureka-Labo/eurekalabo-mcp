@@ -12,6 +12,12 @@ Model Context Protocol (MCP) server for Eureka Labo task management with automat
 - 🤖 **Auto Task Creation** - Automatically creates tasks from git changes when creating PRs without tracked tasks
 - 🇯🇵 **Japanese Content** - Task descriptions and PR content auto-generated in Japanese
 - 🚦 **Task Enforcement** - Optional prompt to require task creation before coding work (see [TASK_ENFORCEMENT.md](TASK_ENFORCEMENT.md))
+- 🧠 **Sub-Agent Integration** - Leverage Claude Code specialist agents for intelligent automation (see [SUBAGENT_INTEGRATION.md](SUBAGENT_INTEGRATION.md))
+  - 📝 Smart commit message generation
+  - 📄 AI-powered PR descriptions
+  - 🔍 Setup validation and health checks
+  - ⚙️ Intelligent project configuration
+  - 🎛️ One-command setup: `eurekaclaude subagents configure` (see [SUBAGENT_SETUP_GUIDE.md](SUBAGENT_SETUP_GUIDE.md))
 
 ## Prerequisites
 
@@ -66,6 +72,47 @@ npm install
 ```
 
 Then manually configure `~/.claude/mcp.json` (see Configuration section below).
+
+### Option 3: Using Makefile (Easiest)
+
+We provide a comprehensive Makefile for easy setup and management:
+
+```bash
+# Clone the repository
+git clone https://github.com/Eureka-Labo/eurekalabo-mcp.git
+cd eurekalabo-mcp
+
+# One-command setup (installs deps, builds, and installs hooks)
+make quickstart
+
+# Install CLI globally
+make install
+
+# Or step by step
+make install-deps    # Install dependencies
+make build           # Build MCP server and CLI
+make install         # Install eurekaclaude command globally
+make hooks-install   # Install work session hooks
+
+# Other useful commands
+make help            # Show all available commands
+make status          # Show system status
+make hooks-status    # Check hook installation
+```
+
+**Available Make Commands:**
+- `make install` - Install CLI globally (eurekaclaude command)
+- `make uninstall` - Uninstall CLI globally
+- `make build` - Build both MCP server and CLI
+- `make hooks-install` - Install work session hooks (guidance mode)
+- `make hooks-strict` - Install hooks with strict enforcement
+- `make hooks-status` - Check hook installation status
+- `make status` - Show system and build status
+- `make clean` - Clean build artifacts
+
+**Note:** On macOS/Linux, if you get permission errors during `make install`, use `sudo make install`. On Windows, run as Administrator.
+
+See [MAKEFILE_GUIDE.md](MAKEFILE_GUIDE.md) for complete documentation.
 
 ## Configuration
 
@@ -485,6 +532,93 @@ npm run build
 # Start production build
 npm start
 ```
+
+## CLI Commands
+
+The project includes a comprehensive CLI tool for managing the MCP server and work session hooks.
+
+### Installation
+
+```bash
+# Build the CLI (if not already built)
+npm run build
+
+# Link CLI globally (optional)
+make link-cli
+# OR
+npm --prefix cli link
+```
+
+After linking, you can use `eurekaclaude` command from anywhere.
+
+### Setup Commands
+
+```bash
+# Build MCP server and CLI
+eurekaclaude build
+
+# Show system status (build state, git branch, active session)
+eurekaclaude status
+
+# Install all dependencies
+eurekaclaude install-deps
+
+# Clean build artifacts
+eurekaclaude clean           # Remove dist directories only
+eurekaclaude clean --all     # Remove dist and node_modules
+
+# Complete one-command setup (install deps, build, install hooks)
+eurekaclaude quickstart
+
+# Link CLI globally
+eurekaclaude link
+```
+
+### Hook Management Commands
+
+```bash
+# Install work session hooks (guidance mode - recommended)
+eurekaclaude hooks install
+
+# Install hooks with strict enforcement
+eurekaclaude hooks install --mode strict
+
+# Check hook installation status
+eurekaclaude hooks status
+
+# Uninstall hooks
+eurekaclaude hooks uninstall
+```
+
+**Hook Modes:**
+- **Guidance Mode** (default): Prompts to create tasks but allows bypass - gives Claude time to auto-create tasks
+- **Strict Mode**: Hard blocks operations without active work session - maximum enforcement
+
+### Workspace Options
+
+All commands support the `--workspace` or `-w` option:
+
+```bash
+eurekaclaude build --workspace /path/to/project
+eurekaclaude hooks install -w /path/to/project
+```
+
+### CLI vs Makefile
+
+Both CLI and Makefile provide the same functionality:
+
+| Operation | CLI Command | Make Command |
+|-----------|-------------|--------------|
+| Build everything | `eurekaclaude build` | `make build` |
+| System status | `eurekaclaude status` | `make status` |
+| Install hooks | `eurekaclaude hooks install` | `make hooks-install` |
+| Hook status | `eurekaclaude hooks status` | `make hooks-status` |
+| Quick setup | `eurekaclaude quickstart` | `make quickstart` |
+
+**See detailed documentation:**
+- CLI: [cli/README.md](cli/README.md)
+- Makefile: [MAKEFILE_GUIDE.md](MAKEFILE_GUIDE.md)
+- Hooks: [CLI_HOOKS.md](CLI_HOOKS.md)
 
 ## Architecture
 
