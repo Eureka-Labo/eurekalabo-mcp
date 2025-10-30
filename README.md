@@ -73,7 +73,7 @@ npm install
 
 Then manually configure `~/.claude/mcp.json` (see Configuration section below).
 
-### Option 3: Using Makefile (Easiest)
+### Option 3: Using Makefile (Mac/Linux - Easiest)
 
 We provide a comprehensive Makefile for easy setup and management:
 
@@ -113,6 +113,54 @@ make hooks-status    # Check hook installation
 **Note:** On macOS/Linux, if you get permission errors during `make install`, use `sudo make install`. On Windows, run as Administrator.
 
 See [MAKEFILE_GUIDE.md](MAKEFILE_GUIDE.md) for complete documentation.
+
+### Option 4: Using PowerShell (Windows - Easiest)
+
+For Windows users, we provide a PowerShell script with identical functionality to the Makefile:
+
+```powershell
+# Clone the repository
+git clone https://github.com/Eureka-Labo/eurekalabo-mcp.git
+cd eurekalabo-mcp
+
+# One-command setup (installs deps, builds, and installs hooks)
+.\make.ps1 quickstart
+
+# Install CLI globally
+.\make.ps1 install
+
+# Or step by step
+.\make.ps1 install-deps    # Install dependencies
+.\make.ps1 build           # Build MCP server and CLI
+.\make.ps1 install         # Install eurekaclaude command globally
+.\make.ps1 hooks-install   # Install work session hooks
+
+# Other useful commands
+.\make.ps1 help            # Show all available commands
+.\make.ps1 status          # Show system status
+.\make.ps1 hooks-status    # Check hook installation
+```
+
+**Available PowerShell Commands:**
+- `.\make.ps1 install` - Install CLI globally (eurekaclaude command)
+- `.\make.ps1 uninstall` - Uninstall CLI globally
+- `.\make.ps1 build` - Build both MCP server and CLI
+- `.\make.ps1 hooks-install` - Install work session hooks (guidance mode)
+- `.\make.ps1 hooks-strict` - Install hooks with strict enforcement
+- `.\make.ps1 hooks-status` - Check hook installation status
+- `.\make.ps1 status` - Show system and build status
+- `.\make.ps1 clean` - Clean build artifacts
+- `.\make.ps1 rebuild` - Clean and rebuild everything
+
+**PowerShell Execution Policy:**
+If you get "scripts is disabled" error:
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+**Note:** If you get permission errors, run PowerShell as Administrator (Right-click → "Run as Administrator").
+
+See [WINDOWS_SETUP.md](WINDOWS_SETUP.md) for complete Windows installation guide.
 
 ## Configuration
 
