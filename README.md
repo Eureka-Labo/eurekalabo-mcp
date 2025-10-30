@@ -64,7 +64,48 @@ claude mcp add -t stdio eureka-tasks `
   -- cmd /c npx tsx C:/workspace/eurekalabo-mcp/src/index.ts
 ```
 
-### Option 2: Manual Installation
+### Option 2: Using npm Scripts (Cross-Platform - Recommended)
+
+All-in-one installation using npm scripts - works on Windows, Mac, and Linux:
+
+```bash
+# Clone the repository
+git clone https://github.com/Eureka-Labo/eurekalabo-mcp.git
+cd eurekalabo-mcp
+
+# One-command setup (installs everything)
+npm run setup:all
+```
+
+**What it does:**
+1. Installs all dependencies (MCP server + CLI)
+2. Builds both MCP server and CLI
+3. Installs CLI globally (`eurekaclaude` command)
+4. Installs work session hooks (guidance mode)
+5. Installs all skills
+
+**Available npm scripts:**
+```bash
+npm run setup:all          # Complete setup (all-in-one)
+npm run setup:deps         # Install dependencies only
+npm run setup:build        # Build MCP server and CLI
+npm run setup:cli          # Install CLI globally
+npm run setup:hooks        # Install hooks (guidance mode)
+npm run setup:hooks:strict # Install hooks (strict mode)
+npm run setup:skills       # Install all skills
+npm run build:all          # Build everything
+```
+
+**Or step by step:**
+```bash
+npm run setup:deps     # 1. Install dependencies
+npm run setup:build    # 2. Build
+npm run setup:cli      # 3. Install CLI globally
+npm run setup:hooks    # 4. Install hooks
+npm run setup:skills   # 5. Install skills
+```
+
+### Option 3: Manual Installation
 
 ```bash
 cd /path/to/eurekalabo/mcp-server
@@ -73,7 +114,7 @@ npm install
 
 Then manually configure `~/.claude/mcp.json` (see Configuration section below).
 
-### Option 3: Using Makefile (Mac/Linux - Easiest)
+### Option 4: Using Makefile (Mac/Linux)
 
 We provide a comprehensive Makefile for easy setup and management:
 
@@ -114,7 +155,7 @@ make hooks-status    # Check hook installation
 
 See [MAKEFILE_GUIDE.md](MAKEFILE_GUIDE.md) for complete documentation.
 
-### Option 4: Using PowerShell (Windows - Easiest)
+### Option 5: Using PowerShell (Windows)
 
 For Windows users, we provide a PowerShell script with identical functionality to the Makefile:
 

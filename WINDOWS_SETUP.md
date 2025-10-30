@@ -28,21 +28,44 @@ This will:
 - Install work session hooks
 - Set up everything automatically
 
-### Option 2: Using npm Scripts
+### Option 2: Using npm Scripts (Easiest)
+
+All-in-one installation - works on all platforms:
 
 ```powershell
-# Install dependencies
-npm install
-npm --prefix cli install
+# 1. Clone repository
+git clone <repository-url>
+cd mcp-server
 
-# Build everything
-npm run build
-npm --prefix cli run build
+# 2. One command does everything
+npm run setup:all
+```
 
-# Install CLI globally
-cd cli
-npm link
-cd ..
+**What it does:**
+1. Installs all dependencies (MCP server + CLI)
+2. Builds both MCP server and CLI
+3. Installs CLI globally (`eurekaclaude` command)
+4. Installs work session hooks (guidance mode)
+5. Installs all skills
+
+**Available npm scripts:**
+```powershell
+npm run setup:all          # Complete setup (recommended)
+npm run setup:deps         # Install dependencies only
+npm run setup:build        # Build MCP server and CLI
+npm run setup:cli          # Install CLI globally
+npm run setup:hooks        # Install hooks (guidance mode)
+npm run setup:hooks:strict # Install hooks (strict mode)
+npm run setup:skills       # Install all skills
+```
+
+**Or step by step:**
+```powershell
+npm run setup:deps     # 1. Install dependencies
+npm run setup:build    # 2. Build everything
+npm run setup:cli      # 3. Install CLI globally
+npm run setup:hooks    # 4. Install hooks
+npm run setup:skills   # 5. Install skills
 ```
 
 ## PowerShell Script Usage

@@ -7,8 +7,19 @@
   "scripts": {
     "dev": "tsx src/index.ts",
     "build": "tsc",
+    "build:mcp": "tsc",
+    "build:cli": "npm --prefix cli run build",
+    "build:all": "npm run build:mcp && npm run build:cli",
     "start": "node dist/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "setup:deps": "npm install && npm --prefix cli install",
+    "setup:build": "npm run build:all",
+    "setup:cli": "npm --prefix cli link",
+    "setup:hooks": "node cli/dist/index.js hooks install --mode guidance",
+    "setup:hooks:strict": "node cli/dist/index.js hooks install --mode strict --force",
+    "setup:skills": "node cli/dist/index.js skills install all",
+    "setup:all": "npm run setup:deps && npm run setup:build && npm run setup:cli && npm run setup:hooks && npm run setup:skills",
+    "postinstall": "npm --prefix cli install"
   },
   "keywords": [
     "mcp",
