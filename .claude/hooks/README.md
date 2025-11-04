@@ -67,10 +67,26 @@ cat .claude/settings.local.json | grep -A 10 "hooks"
 
 ### Session marker exists but no active session?
 
+The hook now automatically detects stale sessions from different Claude Code sessions and prompts you to create a new session automatically.
+
+If you need to manually clean up:
+
 ```bash
 # Manually remove stale marker
 rm .eureka-active-session
 ```
+
+### How Session Validation Works
+
+1. **Session ID Tracking**: When you use Claude Code, a `UserPromptSubmit` hook stores the Claude Code session ID to `.claude-session-id`
+2. **Session Creation**: When you start a work session, the MCP server reads the Claude session ID and stores it in the session marker
+3. **Session Validation**: The `PreToolUse` hook compares the current Claude session ID with the one stored in the session marker
+4. **Stale Detection**: If they don't match, the hook blocks the operation and guides you to create a new session
+
+This prevents issues where:
+- Old session markers from previous Claude Code sessions remain
+- Tasks that no longer exist still have active markers
+- Multiple Claude Code sessions interfere with each other
 
 ## Management Commands
 

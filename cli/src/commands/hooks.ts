@@ -69,6 +69,7 @@ export async function installHooksCommand(options: HooksOptions) {
 
   // Installation steps
   await createHookScript(workspace, mode);
+  await createSessionIdHook(workspace);
   await updateClaudeSettings(workspace);
   await updateGitignore(workspace);
 
@@ -254,7 +255,7 @@ process.stdin.on('end', () => {
 });
 
 function processHook(hookInput) {
-  const { tool_name, tool_input, cwd } = hookInput;
+  const { tool_name, tool_input, cwd, session_id } = hookInput;
 
   // Only enforce for file modification operations
   if (tool_name !== 'Write' && tool_name !== 'Edit' && tool_name !== 'NotebookEdit') {
@@ -267,46 +268,114 @@ function processHook(hookInput) {
   const sessionExists = fs.existsSync(sessionMarkerPath);
 
   if (!sessionExists) {
-    // No active session - block with guidance (both modes use 'deny' for proper enforcement)
-    const response = {
+    // No active session - block with guidance
+    denyWithGuidance(tool_name, tool_input);
+    return;
+  }
+
+  // Session exists - validate it's current and task still exists
+  try {
+    const sessionInfo = JSON.parse(fs.readFileSync(sessionMarkerPath, 'utf8'));
+
+    // Validate session belongs to current Claude Code session
+    if (sessionInfo.claudeSessionId && session_id && sessionInfo.claudeSessionId !== session_id) {
+      // Session belongs to different Claude Code session - deny and require new session
+      denyWithStaleSessionGuidance(tool_name, tool_input, sessionInfo);
+      return;
+    }
+
+    // Session is valid for current Claude Code session
+    const allowResponse = {
       hookSpecificOutput: {
         hookEventName: 'PreToolUse',
-        permissionDecision: 'deny',
-        permissionDecisionReason: buildGuidanceMessage(tool_name, tool_input)
+        permissionDecision: 'allow',
+        permissionDecisionReason: \`✅ Active session: \${sessionInfo.taskId}\`
       },
-      suppressOutput: false,
-      systemMessage: '⚠️ 作業セッションがありません。'
+      suppressOutput: false
     };
 
-    console.log(JSON.stringify(response, null, 2));
+    console.log(JSON.stringify(allowResponse, null, 2));
     process.exit(0);
-  } else {
-    // Session exists - allow with context
-    try {
-      const sessionInfo = JSON.parse(fs.readFileSync(sessionMarkerPath, 'utf8'));
-      const allowResponse = {
-        hookSpecificOutput: {
-          hookEventName: 'PreToolUse',
-          permissionDecision: 'allow',
-          permissionDecisionReason: \`✅ Active session: \${sessionInfo.taskId}\`
-        },
-        suppressOutput: false
-      };
-
-      console.log(JSON.stringify(allowResponse, null, 2));
-      process.exit(0);
-    } catch (error) {
-      // Marker exists but can't read - allow with warning
-      console.log(JSON.stringify({
-        hookSpecificOutput: {
-          hookEventName: 'PreToolUse',
-          permissionDecision: 'allow',
-          permissionDecisionReason: '⚠️ Session marker exists but unreadable'
-        }
-      }, null, 2));
-      process.exit(0);
-    }
+  } catch (error) {
+    // Marker exists but can't read - treat as stale
+    denyWithStaleSessionGuidance(tool_name, tool_input, null);
   }
+}
+
+function denyWithGuidance(toolName, toolInput) {
+  const response = {
+    hookSpecificOutput: {
+      hookEventName: 'PreToolUse',
+      permissionDecision: 'deny',
+      permissionDecisionReason: buildGuidanceMessage(toolName, toolInput)
+    },
+    suppressOutput: false,
+    systemMessage: '⚠️ 作業セッションがありません。'
+  };
+
+  console.log(JSON.stringify(response, null, 2));
+  process.exit(0);
+}
+
+function denyWithStaleSessionGuidance(toolName, toolInput, oldSessionInfo) {
+  const filePath = toolInput.file_path || 'unknown';
+  const oldTaskId = oldSessionInfo ? oldSessionInfo.taskId : 'unknown';
+
+  const message = \`🤖 SYSTEM: Stale Work Session Detected
+
+Operation: \${toolName} on \${filePath}
+
+🚨 PREVIOUS SESSION NO LONGER VALID
+
+Old session task ID: \${oldTaskId}
+Reason: This session belongs to a different Claude Code session or the task no longer exists.
+
+**YOU MUST AUTOMATICALLY EXECUTE THIS WORKFLOW NOW:**
+
+Step 1: Clean up stale session marker (AUTOMATIC):
+   Use Bash tool: rm .eureka-active-session
+
+Step 2: Get available boards FIRST (AUTOMATIC - don't ask user):
+   mcp__eureka-tasks__list_boards()
+
+Step 3: Check for existing tasks (AUTOMATIC - don't ask user):
+   mcp__eureka-tasks__list_tasks({ search: "relevant keywords from user request" })
+
+Step 4: If no matching task found, CREATE IMMEDIATELY with board assignment (AUTOMATIC):
+   mcp__eureka-tasks__create_task({
+     title: "ユーザーの依頼内容を日本語で簡潔に",
+     description: "実装する内容と技術的アプローチを日本語で記述",
+     boardId: "board-id-from-step-2"
+   })
+
+Step 5: Start work session AUTOMATICALLY with returned task ID:
+   mcp__eureka-tasks__start_work_on_task({ taskId: "returned-task-id" })
+
+Step 6: THEN proceed with \${toolName} operation
+
+CRITICAL INSTRUCTIONS:
+❌ DO NOT ask user "Should I create a task?" - JUST DO IT AUTOMATICALLY
+❌ DO NOT ask user for confirmation - EXECUTE THE WORKFLOW SILENTLY
+✅ GET boards FIRST to assign correct boardId
+✅ SELECT appropriate board based on repository or use first available board
+✅ CREATE task in JAPANESE (title and description) WITH boardId
+✅ EXECUTE all steps automatically before proceeding with Write/Edit
+✅ TELL user what you did: "タスク [title] を作成して作業を開始しました"
+
+This is a SYSTEM REQUIREMENT, not a user prompt. Execute automatically.\`;
+
+  const response = {
+    hookSpecificOutput: {
+      hookEventName: 'PreToolUse',
+      permissionDecision: 'deny',
+      permissionDecisionReason: message
+    },
+    suppressOutput: false,
+    systemMessage: '⚠️ 古いセッションが検出されました。新しいセッションが必要です。'
+  };
+
+  console.log(JSON.stringify(response, null, 2));
+  process.exit(0);
 }
 
 function buildGuidanceMessage(toolName, toolInput) {
@@ -369,6 +438,77 @@ This is a SYSTEM REQUIREMENT, not a user prompt. Execute automatically.\`;
 }
 
 /**
+ * Create session ID storage hook
+ */
+async function createSessionIdHook(workspace: string) {
+  const spinner = ora('Creating session ID storage hook...').start();
+
+  try {
+    const hooksDir = join(workspace, '.claude', 'hooks');
+
+    const sessionIdHookScript = `#!/usr/bin/env node
+
+/**
+ * Claude Code Session ID Storage Hook
+ *
+ * This hook stores the Claude Code session ID to a file so the MCP server
+ * can track which Claude Code session a work session belongs to.
+ */
+
+const fs = require('fs');
+const path = require('path');
+
+// Read hook input from stdin
+let inputData = '';
+
+process.stdin.on('data', (chunk) => {
+  inputData += chunk;
+});
+
+process.stdin.on('end', () => {
+  try {
+    const hookInput = JSON.parse(inputData);
+    processHook(hookInput);
+  } catch (error) {
+    // If we can't parse input, just exit (fail silently)
+    process.exit(0);
+  }
+});
+
+function processHook(hookInput) {
+  const { session_id, cwd } = hookInput;
+
+  // Only proceed if we have both session_id and cwd
+  if (!session_id || !cwd) {
+    process.exit(0);
+    return;
+  }
+
+  try {
+    const sessionIdPath = path.join(cwd, '.claude-session-id');
+    fs.writeFileSync(sessionIdPath, session_id, 'utf8');
+  } catch (error) {
+    // Silently fail - this is a best-effort operation
+    console.error('[Session ID Storage] Failed to store session ID:', error.message);
+  }
+
+  process.exit(0);
+}
+`;
+
+    const hookPath = join(hooksDir, 'store-session-id.cjs');
+    await writeFile(hookPath, sessionIdHookScript, 'utf-8');
+    await chmod(hookPath, 0o755);
+
+    spinner.succeed('Session ID storage hook created');
+  } catch (error: any) {
+    spinner.fail('Failed to create session ID hook');
+    console.error(chalk.red(error.message));
+    throw error;
+  }
+}
+
+/**
  * Update Claude settings to register the hook
  */
 async function updateClaudeSettings(workspace: string) {
@@ -378,8 +518,10 @@ async function updateClaudeSettings(workspace: string) {
     await ensureClaudeConfigDir();
 
     const settingsPath = join(workspace, '.claude', 'settings.local.json');
-    // Use relative path from workspace root for portability
-    const hookPath = '.claude/hooks/check-work-session.cjs';
+    // Use absolute paths - hooks are installed IN the project's .claude/hooks directory
+    // So when you move/clone the project to a new computer, the hooks move with it
+    const checkWorkSessionHookPath = join(workspace, '.claude', 'hooks', 'check-work-session.cjs');
+    const storeSessionIdHookPath = join(workspace, '.claude', 'hooks', 'store-session-id.cjs');
 
     let settings: any = {};
 
@@ -394,13 +536,28 @@ async function updateClaudeSettings(workspace: string) {
       settings.hooks = {};
     }
 
+    // UserPromptSubmit hook for session ID storage
+    settings.hooks.UserPromptSubmit = [
+      {
+        matcher: '.*',
+        hooks: [
+          {
+            type: 'command',
+            command: storeSessionIdHookPath,
+            timeout: 2
+          }
+        ]
+      }
+    ];
+
+    // PreToolUse hook for work session enforcement
     settings.hooks.PreToolUse = [
       {
         matcher: 'Write|Edit|NotebookEdit',
         hooks: [
           {
             type: 'command',
-            command: hookPath,
+            command: checkWorkSessionHookPath,
             timeout: 5
           }
         ]
@@ -426,7 +583,7 @@ async function updateGitignore(workspace: string) {
 
   try {
     const gitignorePath = join(workspace, '.gitignore');
-    const markerEntry = '\n# Eureka Tasks session marker (managed by MCP server)\n.eureka-active-session\n';
+    const markerEntry = '\n# Eureka Tasks session files (managed by MCP server)\n.eureka-active-session\n.claude-session-id\n';
 
     if (existsSync(gitignorePath)) {
       const content = await readFile(gitignorePath, 'utf-8');
@@ -528,10 +685,26 @@ cat .claude/settings.local.json | grep -A 10 "hooks"
 
 ### Session marker exists but no active session?
 
+The hook now automatically detects stale sessions from different Claude Code sessions and prompts you to create a new session automatically.
+
+If you need to manually clean up:
+
 \`\`\`bash
 # Manually remove stale marker
 rm .eureka-active-session
 \`\`\`
+
+### How Session Validation Works
+
+1. **Session ID Tracking**: When you use Claude Code, a \`UserPromptSubmit\` hook stores the Claude Code session ID to \`.claude-session-id\`
+2. **Session Creation**: When you start a work session, the MCP server reads the Claude session ID and stores it in the session marker
+3. **Session Validation**: The \`PreToolUse\` hook compares the current Claude session ID with the one stored in the session marker
+4. **Stale Detection**: If they don't match, the hook blocks the operation and guides you to create a new session
+
+This prevents issues where:
+- Old session markers from previous Claude Code sessions remain
+- Tasks that no longer exist still have active markers
+- Multiple Claude Code sessions interfere with each other
 
 ## Management Commands
 

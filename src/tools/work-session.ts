@@ -25,6 +25,7 @@ interface WorkSession {
   gitBaseline: string | null;
   branch: string | null;
   gitTracked: boolean;
+  claudeSessionId?: string;
 }
 
 /**
@@ -118,6 +119,21 @@ export function initializeActiveSessions(workspacePath: string): void {
 }
 
 /**
+ * Read Claude Code session ID from hook-created file if available
+ */
+function readClaudeSessionId(workspacePath: string): string | undefined {
+  try {
+    const sessionIdPath = path.join(workspacePath, '.claude-session-id');
+    if (fs.existsSync(sessionIdPath)) {
+      return fs.readFileSync(sessionIdPath, 'utf8').trim();
+    }
+  } catch (error) {
+    // Silently fail - session ID is optional
+  }
+  return undefined;
+}
+
+/**
  * Create session marker file for hook validation
  */
 function createSessionMarker(workspacePath: string, session: WorkSession): void {
@@ -129,6 +145,7 @@ function createSessionMarker(workspacePath: string, session: WorkSession): void 
       gitTracked: session.gitTracked,
       branch: session.branch,
       gitBaseline: session.gitBaseline,
+      claudeSessionId: session.claudeSessionId,
     }, null, 2);
     fs.writeFileSync(markerPath, markerContent, 'utf8');
   } catch (error) {
@@ -196,6 +213,9 @@ export async function startWorkOnTask(taskId: string): Promise<{
       await branchSessionManager.trackTaskInBranch(taskId);
     }
 
+    // Read Claude Code session ID if available
+    const claudeSessionId = readClaudeSessionId(workspacePath);
+
     // Create session
     const session: WorkSession = {
       taskId,
@@ -203,6 +223,7 @@ export async function startWorkOnTask(taskId: string): Promise<{
       gitBaseline,
       branch,
       gitTracked: isRepo,
+      claudeSessionId,
     };
 
     // Store active session
