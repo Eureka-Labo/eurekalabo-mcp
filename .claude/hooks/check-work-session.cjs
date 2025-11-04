@@ -42,7 +42,7 @@ function processHook(hookInput) {
   const sessionExists = fs.existsSync(sessionMarkerPath);
 
   if (!sessionExists) {
-    // No active session - block with guidance
+    // No active session - block with guidance (both modes use 'deny' for proper enforcement)
     const response = {
       hookSpecificOutput: {
         hookEventName: 'PreToolUse',

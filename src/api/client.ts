@@ -31,6 +31,32 @@ export interface ProjectMember {
   };
 }
 
+export interface Board {
+  id: string;
+  projectId: string;
+  name: string;
+  description: string | null;
+  repositoryId: string | null;
+  repository?: Repository | null;
+  isDefault: boolean;
+  viewType: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Repository {
+  id: string;
+  projectId: string;
+  name: string;
+  url: string | null;
+  description: string | null;
+  type: string;
+  isActive: boolean;
+  orderIndex: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export class EurekaAPIClient {
   private client: AxiosInstance;
   private projectId: string | null = null;
@@ -84,7 +110,18 @@ export class EurekaAPIClient {
     }
 
     try {
-      // Fetch current API key info to get projectId
+      // Try to load projectId from session file first
+      const { loadSessionState } = await import('../utils/session-state.js');
+      const sessionState = await loadSessionState();
+
+      if (sessionState?.projectId) {
+        this.projectId = sessionState.projectId;
+        this.initialized = true;
+        console.log(`✅ MCP Server initialized for project: ${this.projectId} (from session)`);
+        return;
+      }
+
+      // Fetch current API key info to get projectId if not in session
       const response = await this.client.get('/api/v1/api-keys/me');
       const keyInfo = response.data;
 
@@ -96,6 +133,17 @@ export class EurekaAPIClient {
       this.initialized = true;
 
       console.log(`✅ MCP Server initialized for project: ${this.projectId}`);
+
+      // Save projectId to session for future use
+      const { execSync } = await import('child_process');
+      try {
+        const branch = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf-8' }).trim();
+        const { initializeSessionState, saveSessionState } = await import('../utils/session-state.js');
+        const newState = initializeSessionState(this.projectId!, branch);
+        await saveSessionState(newState);
+      } catch (gitError) {
+        // Ignore git errors - session will be created on first task update
+      }
     } catch (error: any) {
       throw new Error(`Failed to initialize API client: ${error.message}`);
     }
@@ -153,6 +201,7 @@ export class EurekaAPIClient {
     priority?: string;
     assigneeId?: string;
     dueDate?: string;
+    boardId?: string;
   }): Promise<Task> {
     await this.ensureInitialized();
     const projectId = this.getProjectId();
@@ -221,6 +270,40 @@ export class EurekaAPIClient {
 
     const response = await this.client.get(`/api/v1/projects/${projectId}/members`);
     return response.data;
+  }
+
+  // ===== Board Operations =====
+
+  async listBoards(repositoryId?: string): Promise<Board[]> {
+    await this.ensureInitialized();
+
+    const params = repositoryId ? { repositoryId } : {};
+    const response = await this.client.get('/api/v1/api/boards', { params });
+    return response.data.boards || response.data;
+  }
+
+  async getBoard(boardId: string): Promise<Board> {
+    await this.ensureInitialized();
+
+    const response = await this.client.get(`/api/v1/boards/${boardId}`);
+    return response.data;
+  }
+
+  // ===== Repository Operations =====
+
+  async listRepositories(): Promise<Repository[]> {
+    await this.ensureInitialized();
+    const projectId = this.getProjectId();
+
+    const response = await this.client.get(`/api/v1/projects/${projectId}/repositories`);
+    return response.data;
+  }
+
+  async getRepositoryByUrl(url: string): Promise<Repository | null> {
+    await this.ensureInitialized();
+
+    const repositories = await this.listRepositories();
+    return repositories.find(repo => repo.url === url) || null;
   }
 
   // ===== Attachment Operations =====

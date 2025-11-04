@@ -8,7 +8,7 @@
         ],
         "env": {
           "EUREKA_API_URL": "https://eurekalabo.162-43-92-100.nip.io",
-          "EUREKA_API_KEY": "pk_live_081c47da0e1863ec6a2d6bd6012ec5aa4c078883a193559b0c892da3b63f7af2"
+          "EUREKA_API_KEY": "pk_live_0b6dfc6cea1fd66430561d14c1f9eccfac591df6d22184cd32ce891b18861492"
         }
       }
     }

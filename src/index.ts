@@ -22,6 +22,9 @@ import {
   updateTask,
   listProjectMembers,
   uploadTaskAttachment,
+  getSessionProgress,
+  clearSessionCompletedTasks,
+  listBoards,
 } from './tools/task-tools.js';
 import {
   startWorkOnTask,
@@ -105,7 +108,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: 'create_task',
-        description: 'Create a new task in the project.',
+        description: 'Create a new task in the project. Board assignment is automatic based on git repository, or you can provide boardId to override. Can optionally create as a subtask by providing parentTaskId.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -115,7 +118,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
             description: {
               type: 'string',
-              description: 'Task description',
+              description: 'Task description (optional)',
             },
             status: {
               type: 'string',
@@ -132,6 +135,14 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             dueDate: {
               type: 'string',
               description: 'Due date (ISO 8601 format)',
+            },
+            boardId: {
+              type: 'string',
+              description: 'Board ID (optional) - if not provided, will be auto-selected based on git repository',
+            },
+            parentTaskId: {
+              type: 'string',
+              description: 'Parent task ID - set this to create a subtask. Session progress will auto-save. Board will be inherited from parent.',
             },
           },
           required: ['title'],
@@ -261,6 +272,35 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
           },
           required: ['taskId', 'filePath'],
+        },
+      },
+
+      // Session Progress Tools
+      {
+        name: 'get_session_progress',
+        description:
+          'Get session progress summary showing active parent tasks with subtasks and their completion status. Displays task completion percentages and subtask states.',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+        },
+      },
+      {
+        name: 'clear_session_completed_tasks',
+        description:
+          'Clear completed tasks from session state. Removes tasks that are 100% done from the .eureka-session.json file.',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+        },
+      },
+      {
+        name: 'list_boards',
+        description:
+          'List all task boards in the project. Shows board details including name, ID, repository assignment, and default status. Useful for diagnosing board-related issues when creating tasks.',
+        inputSchema: {
+          type: 'object',
+          properties: {},
         },
       },
 
@@ -686,6 +726,49 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                   safeArgs.taskId as string,
                   safeArgs.filePath as string
                 ),
+                null,
+                2
+              ),
+            },
+          ],
+        };
+
+      // Session Progress
+      case 'get_session_progress':
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                await getSessionProgress(),
+                null,
+                2
+              ),
+            },
+          ],
+        };
+
+      case 'clear_session_completed_tasks':
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                await clearSessionCompletedTasks(),
+                null,
+                2
+              ),
+            },
+          ],
+        };
+
+      case 'list_boards':
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                await listBoards(),
                 null,
                 2
               ),

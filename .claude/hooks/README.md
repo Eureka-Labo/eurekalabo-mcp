@@ -59,7 +59,7 @@ mcp__eureka-tasks__complete_task_work({
 
 ```bash
 # Check hook is executable
-chmod +x .claude/hooks/check-work-session.js
+chmod +x .claude/hooks/check-work-session.cjs
 
 # Verify configuration
 cat .claude/settings.local.json | grep -A 10 "hooks"

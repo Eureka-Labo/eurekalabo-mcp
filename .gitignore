@@ -7,3 +7,4 @@ dist/
 # Eureka Tasks session markers and persistence (managed by MCP server)
 .eureka-active-session
 .eureka-sessions/
+.eureka-session.json

@@ -159,11 +159,12 @@ Now when you try to Write or Edit files without an active session, you'll be blo
 操作をブロックしました: Write on src/auth.ts
 
 **必須の手順:**
-1. mcp__eureka-tasks__list_tasks で関連タスクを検索
-2. mcp__eureka-tasks__create_task (タスクがない場合)
-3. mcp__eureka-tasks__start_work_on_task (必須)
-4. Write/Edit操作が許可されます
-5. mcp__eureka-tasks__complete_task_work (完了時)
+1. mcp__eureka-tasks__list_boards でボードを取得
+2. mcp__eureka-tasks__list_tasks で関連タスクを検索
+3. mcp__eureka-tasks__create_task (タスクがない場合、boardId付き)
+4. mcp__eureka-tasks__start_work_on_task (必須)
+5. Write/Edit操作が許可されます
+6. mcp__eureka-tasks__complete_task_work (完了時)
 ```
 
 ## Required Workflow (Enforced by Hook)
@@ -171,25 +172,30 @@ Now when you try to Write or Edit files without an active session, you'll be blo
 The hook enforces this workflow:
 
 ```bash
-# Step 1: Check for existing tasks
+# Step 1: Get available boards
+mcp__eureka-tasks__list_boards()
+# Returns: [{ id: "board-123", name: "API Development", ... }]
+
+# Step 2: Check for existing tasks
 mcp__eureka-tasks__list_tasks({ search: "認証" })
 
-# Step 2: Create task if none exists (REQUIRED)
+# Step 3: Create task if none exists (REQUIRED with board assignment)
 mcp__eureka-tasks__create_task({
   title: "APIにJWT認証を追加",  # Japanese required
-  description: "認証ミドルウェアを実装"  # Japanese required
+  description: "認証ミドルウェアを実装",  # Japanese required
+  boardId: "board-123"  # Board assignment required
 })
 # Returns: { taskId: "task-123" }
 
-# Step 3: Start work session (REQUIRED before coding)
+# Step 4: Start work session (REQUIRED before coding)
 mcp__eureka-tasks__start_work_on_task({ taskId: "task-123" })
 # Creates .eureka-active-session marker
 
-# Step 4: Now Write/Edit operations are allowed ✅
+# Step 5: Now Write/Edit operations are allowed ✅
 Write({ file_path: "src/auth.ts", content: "..." })
 Edit({ file_path: "src/routes.ts", old_string: "...", new_string: "..." })
 
-# Step 5: Complete work session (REQUIRED at end)
+# Step 6: Complete work session (REQUIRED at end)
 mcp__eureka-tasks__complete_task_work({
   taskId: "task-123",
   summary: "JWT認証を実装しました"  # Japanese required
@@ -285,6 +291,7 @@ project/
 - Consistent process across team
 - All changes tracked
 - Japanese content requirement
+- Automatic board assignment
 
 ### ✅ Git Integration
 - Automatic baseline capture

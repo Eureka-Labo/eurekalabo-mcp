@@ -85,11 +85,12 @@ export async function installHooksCommand(options: HooksOptions) {
   console.log('  - Guides you to create tasks and start sessions');
   console.log('  - Ensures complete audit trail for all code changes\n');
   console.log(chalk.cyan('Required workflow:'));
-  console.log('  1. mcp__eureka-tasks__list_tasks (search existing)');
-  console.log('  2. mcp__eureka-tasks__create_task (if none exists)');
-  console.log('  3. mcp__eureka-tasks__start_work_on_task (REQUIRED before coding)');
-  console.log('  4. Write/Edit operations now allowed');
-  console.log('  5. mcp__eureka-tasks__complete_task_work (when done)\n');
+  console.log('  1. mcp__eureka-tasks__list_boards (get available boards)');
+  console.log('  2. mcp__eureka-tasks__list_tasks (search existing)');
+  console.log('  3. mcp__eureka-tasks__create_task (if none exists, with boardId)');
+  console.log('  4. mcp__eureka-tasks__start_work_on_task (REQUIRED before coding)');
+  console.log('  5. Write/Edit operations now allowed');
+  console.log('  6. mcp__eureka-tasks__complete_task_work (when done)\n');
   console.log(chalk.dim('Documentation: .claude/hooks/README.md\n'));
 }
 
@@ -319,24 +320,30 @@ Operation: \${toolName} on \${filePath}
 
 **YOU MUST AUTOMATICALLY EXECUTE THIS WORKFLOW NOW:**
 
-Step 1: Check for existing tasks (AUTOMATIC - don't ask user):
+Step 1: Get available boards FIRST (AUTOMATIC - don't ask user):
+   mcp__eureka-tasks__list_boards()
+
+Step 2: Check for existing tasks (AUTOMATIC - don't ask user):
    mcp__eureka-tasks__list_tasks({ search: "relevant keywords from user request" })
 
-Step 2: If no matching task found, CREATE IMMEDIATELY (AUTOMATIC):
+Step 3: If no matching task found, CREATE IMMEDIATELY with board assignment (AUTOMATIC):
    mcp__eureka-tasks__create_task({
      title: "ユーザーの依頼内容を日本語で簡潔に",
-     description: "実装する内容と技術的アプローチを日本語で記述"
+     description: "実装する内容と技術的アプローチを日本語で記述",
+     boardId: "board-id-from-step-1"
    })
 
-Step 3: Start work session AUTOMATICALLY with returned task ID:
+Step 4: Start work session AUTOMATICALLY with returned task ID:
    mcp__eureka-tasks__start_work_on_task({ taskId: "returned-task-id" })
 
-Step 4: THEN proceed with \${toolName} operation
+Step 5: Proceed with \${toolName} operation
 
 CRITICAL INSTRUCTIONS:
 ❌ DO NOT ask user "Should I create a task?" - JUST DO IT AUTOMATICALLY
 ❌ DO NOT ask user for confirmation - EXECUTE THE WORKFLOW SILENTLY
-✅ CREATE task in JAPANESE (title and description)
+✅ GET boards FIRST to assign correct boardId
+✅ SELECT appropriate board based on repository or use first available board
+✅ CREATE task in JAPANESE (title and description) WITH boardId
 ✅ EXECUTE all steps automatically before proceeding with Write/Edit
 ✅ TELL user what you did: "タスク [title] を作成して作業を開始しました"
 
@@ -371,7 +378,8 @@ async function updateClaudeSettings(workspace: string) {
     await ensureClaudeConfigDir();
 
     const settingsPath = join(workspace, '.claude', 'settings.local.json');
-    const hookPath = join(workspace, '.claude', 'hooks', 'check-work-session.cjs');
+    // Use relative path from workspace root for portability
+    const hookPath = '.claude/hooks/check-work-session.cjs';
 
     let settings: any = {};
 
@@ -472,22 +480,26 @@ Before every Write or Edit operation, the hook:
 ## Required Workflow
 
 \`\`\`bash
-# Step 1: Search for existing tasks
+# Step 1: Get available boards
+mcp__eureka-tasks__list_boards()
+
+# Step 2: Search for existing tasks
 mcp__eureka-tasks__list_tasks({ search: "認証" })
 
-# Step 2: Create task if none exists (Japanese content)
+# Step 3: Create task if none exists (Japanese content with board assignment)
 mcp__eureka-tasks__create_task({
   title: "APIにJWT認証を追加",
-  description: "認証ミドルウェアを実装し、全エンドポイントを保護する"
+  description: "認証ミドルウェアを実装し、全エンドポイントを保護する",
+  boardId: "board-abc123"
 })
 
-# Step 3: Start work session (REQUIRED before code changes)
+# Step 4: Start work session (REQUIRED before code changes)
 mcp__eureka-tasks__start_work_on_task({ taskId: "task-123" })
 
-# Step 4: Now Write/Edit operations are allowed
+# Step 5: Now Write/Edit operations are allowed
 Write({ file_path: "src/auth.ts", content: "..." })
 
-# Step 5: Complete work session (Japanese summary)
+# Step 6: Complete work session (Japanese summary)
 mcp__eureka-tasks__complete_task_work({
   taskId: "task-123",
   summary: "JWT認証ミドルウェアを実装しました"
@@ -500,6 +512,7 @@ mcp__eureka-tasks__complete_task_work({
 - ✅ Automatic git integration and change tracking
 - ✅ Team visibility via Eureka Tasks dashboard
 - ✅ Enforced workflow (no accidental bypassing)
+- ✅ Automatic board assignment for task organization
 
 ## Troubleshooting
 
