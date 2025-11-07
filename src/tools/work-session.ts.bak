@@ -199,49 +199,18 @@ export async function startWorkOnTask(taskId: string): Promise<{
       const taskRes = await apiClient.get(`/api/v1/tasks/${taskId}`);
       const task = taskRes.data.data || taskRes.data;
 
-      // Check if task is a maintenance task (skip feature spec requirement)
-      const isMaintenance =
-        task.labels?.some((label: any) =>
-          label.name?.toLowerCase().includes('maintenance') ||
-          label.name?.toLowerCase().includes('メンテナンス')
-        ) ||
-        task.title?.toLowerCase().includes('maintenance') ||
-        task.title?.includes('メンテナンス') ||
-        task.title?.includes('修正') ||
-        task.title?.includes('リファクタリング');
+      // Check if task has featureSpecs links
+      const hasFeatureSpecLink = task.featureSpecs && task.featureSpecs.length > 0;
 
-      // Declare hasFeatureSpecLink outside if/else for scope
-      let hasFeatureSpecLink = false;
-
-      // Skip feature spec requirement for maintenance tasks
-      if (isMaintenance) {
-        console.log('✅ Maintenance task detected - skipping feature spec requirement');
-        hasFeatureSpecLink = true; // Treat as having spec link to bypass validation
-      } else {
-        // Check if task has featureSpecs links
-        hasFeatureSpecLink = task.featureSpecs && task.featureSpecs.length > 0;
-
-        // If not included in response, try direct API query
-        if (!hasFeatureSpecLink) {
-          try {
-            const linksRes = await apiClient.get(`/api/v1/tasks/${taskId}/feature-specs`);
-            const links = linksRes.data?.data || linksRes.data || [];
-            hasFeatureSpecLink = links.length > 0;
-          } catch (error: any) {
-            console.warn('[Feature Spec Check] Could not fetch links:', error.message);
-          }
-        }
-
-        if (!hasFeatureSpecLink) {
-          return {
-            success: false,
-            message: `タスクが機能仕様にリンクされていません。タスクを開始する前に、link_task_to_feature_spec() を使用して機能仕様にリンクする必要があります。\n\nメンテナンスタスクの場合は、タイトルに「メンテナンス」「修正」「リファクタリング」を含めてください。`,
-          };
-        }
+      if (!hasFeatureSpecLink) {
+        return {
+          success: false,
+          message: `タスクが機能仕様にリンクされていません。タスクを開始する前に、link_task_to_feature_spec() を使用して機能仕様にリンクする必要があります。`,
+        };
       }
 
       // ENHANCED: Validate feature spec readiness
-      if (hasFeatureSpecLink && !isMaintenance) {
+      if (hasFeatureSpecLink) {
         const featureSpecId = task.featureSpecs[0].featureSpecId;
 
         // Import validation function dynamically

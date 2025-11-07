@@ -168,6 +168,22 @@ export class EurekaAPIClient {
     return this.projectId;
   }
 
+  /**
+   * Generic GET request method for feature spec tools
+   */
+  async get(url: string, config?: any): Promise<any> {
+    await this.ensureInitialized();
+    return await this.client.get(url, config);
+  }
+
+  /**
+   * Generic POST request method for feature spec tools
+   */
+  async post(url: string, data?: any, config?: any): Promise<any> {
+    await this.ensureInitialized();
+    return await this.client.post(url, data, config);
+  }
+
   // ===== Task Operations =====
 
   async listTasks(filters?: {

@@ -44,6 +44,22 @@ import {
   generateSetupValidationPrompt,
   generateSmartSetupPrompt,
 } from './tools/subagent-helpers.js';
+import {
+  startFeatureDevelopment,
+  analyzeCodebase,
+  getFeatureSpec,
+  createFeatureSpec,
+  linkTaskToFeatureSpec,
+  getPageNavigationFlow,
+  createSubtasks,
+  createNavigationFlow,
+  getNavigationFlow,
+  updateNavigationFlow,
+  deleteNavigationFlow,
+  getEnhancedSpecProgress,
+  getProjectNavigationOverview,
+  validateFeatureSpecReadiness,
+} from './tools/feature-spec-tools.js';
 
 // Initialize MCP server
 const server = new Server(
@@ -108,17 +124,17 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: 'create_task',
-        description: 'Create a new task in the project. Board assignment is automatic based on git repository, or you can provide boardId to override. Can optionally create as a subtask by providing parentTaskId.',
+        description: 'Create a new task in the project. Board assignment is automatic based on git repository, or you can provide boardId to override. Can optionally create as a subtask by providing parentTaskId. AUTO-DETECTS task type and adds Japanese prefix: メンテナンス (maintenance/update/upgrade), 修正 (fix/bug/error), リファクタリング (refactor/cleanup) based on title and description keywords.',
         inputSchema: {
           type: 'object',
           properties: {
             title: {
               type: 'string',
-              description: 'Task title',
+              description: 'Task title - will auto-detect type and add prefix if maintenance/fix/refactoring keywords found',
             },
             description: {
               type: 'string',
-              description: 'Task description (optional)',
+              description: 'Task description (optional) - used for type detection along with title',
             },
             status: {
               type: 'string',
@@ -143,6 +159,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             parentTaskId: {
               type: 'string',
               description: 'Parent task ID - set this to create a subtask. Session progress will auto-save. Board will be inherited from parent.',
+            },
+            skipAutoPrefix: {
+              type: 'boolean',
+              description: 'Set to true to disable automatic task type prefix detection (default: false)',
             },
           },
           required: ['title'],
@@ -408,6 +428,200 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           },
         },
       },
+
+      // Feature Spec Tools
+      {
+        name: 'start_feature_development',
+        description: 'Start developing a new feature. Checks for existing specs first.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            projectId: { type: 'string' },
+            prompt: { type: 'string' },
+            figmaUrl: { type: 'string' },
+            selectedExistingSpecId: { type: 'string' },
+            createNew: { type: 'boolean' },
+          },
+          required: ['projectId', 'prompt'],
+        },
+      },
+      {
+        name: 'create_feature_spec',
+        description: 'Create a new feature specification with AI-generated PRD, pages, endpoints, and ER diagrams.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            projectId: { type: 'string' },
+            prompt: { type: 'string', description: 'Feature description in Japanese' },
+            figmaUrl: { type: 'string' },
+            clarifications: { type: 'object', description: 'User answers to clarification questions' },
+          },
+          required: ['projectId', 'prompt'],
+        },
+      },
+      {
+        name: 'link_task_to_feature_spec',
+        description: 'Link a board task to a feature spec. Required for all tasks before starting work.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            taskId: { type: 'string' },
+            featureSpecId: { type: 'string' },
+            purpose: { type: 'string', description: 'Why this task relates to the spec (in Japanese)' },
+          },
+          required: ['taskId', 'featureSpecId'],
+        },
+      },
+      {
+        name: 'analyze_codebase',
+        description: 'Analyze project codebase structure',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            projectId: { type: 'string' },
+            analyzePages: { type: 'boolean' },
+            analyzeEndpoints: { type: 'boolean' },
+            analyzeErDiagrams: { type: 'boolean' },
+          },
+          required: ['projectId'],
+        },
+      },
+      {
+        name: 'get_feature_spec',
+        description: 'Get feature spec details with tasks and progress',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            specId: { type: 'string' },
+          },
+          required: ['specId'],
+        },
+      },
+      {
+        name: 'get_page_navigation_flow',
+        description: 'Get navigation flow for a project page including linked endpoints, entities, and screens',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            pageId: { type: 'string' },
+          },
+          required: ['pageId'],
+        },
+      },
+      {
+        name: 'create_subtasks',
+        description: 'Generate frontend, backend, and testing subtasks for a main task with auto-board routing',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            featureSpecId: { type: 'string', description: 'Feature spec ID' },
+            mainTaskId: { type: 'string', description: 'Main task ID to create subtasks for' },
+            taskTypes: {
+              type: 'array',
+              description: 'Types of subtasks to create (default: FRONTEND, BACKEND, TESTING)',
+              items: { type: 'string' }
+            },
+            estimatedHours: { type: 'number', description: 'Total estimated hours for all subtasks' },
+            priority: { type: 'string', description: 'Priority level (LOW, MEDIUM, HIGH, CRITICAL)' },
+          },
+          required: ['featureSpecId', 'mainTaskId'],
+        },
+      },
+      {
+        name: 'create_navigation_flow',
+        description: 'Create a visual navigation flow diagram for project pages with auto-layout',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            projectId: { type: 'string' },
+            name: { type: 'string', description: 'Flow name (e.g., "User Registration Flow")' },
+            description: { type: 'string', description: 'Flow description' },
+            pages: {
+              type: 'array',
+              description: 'Pages to include in the flow',
+              items: { type: 'object' }
+            },
+            connections: {
+              type: 'array',
+              description: 'Page connections with triggers',
+              items: { type: 'object' }
+            },
+            autoLayout: { type: 'boolean', description: 'Auto-arrange nodes (default: true)' },
+          },
+          required: ['projectId', 'name', 'pages', 'connections'],
+        },
+      },
+      {
+        name: 'get_navigation_flow',
+        description: 'Get detailed navigation flow with nodes and edges',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            flowId: { type: 'string' },
+          },
+          required: ['flowId'],
+        },
+      },
+      {
+        name: 'update_navigation_flow',
+        description: 'Update navigation flow structure and layout',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            flowId: { type: 'string' },
+            name: { type: 'string' },
+            description: { type: 'string' },
+            pages: { type: 'array' },
+            connections: { type: 'array' },
+            autoLayout: { type: 'boolean' },
+          },
+          required: ['flowId'],
+        },
+      },
+      {
+        name: 'delete_navigation_flow',
+        description: 'Delete a navigation flow diagram',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            flowId: { type: 'string' },
+          },
+          required: ['flowId'],
+        },
+      },
+      {
+        name: 'get_enhanced_spec_progress',
+        description: 'Get progress with subtask breakdown, dependency tracking, and estimated hours',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            specId: { type: 'string' },
+          },
+          required: ['specId'],
+        },
+      },
+      {
+        name: 'get_project_navigation_overview',
+        description: 'Get all navigation flows and page relationships for a project, including orphaned pages',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            projectId: { type: 'string' },
+          },
+          required: ['projectId'],
+        },
+      },
+      {
+        name: 'validate_feature_spec_readiness',
+        description: 'Validate that all required artifacts (pages, endpoints, ER diagrams, navigation flow, tasks, subtasks) exist before starting work. CRITICAL: Must be called before start_work_on_task to ensure complete setup.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            specId: { type: 'string', description: 'Feature spec ID to validate' },
+          },
+          required: ['specId'],
+        },
+      },
     ],
   };
 });
@@ -435,35 +649,116 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
           role: 'user',
           content: {
             type: 'text',
-            text: `# 🤖 AUTOMATIC: Eureka Tasks Workflow
+            text: `# 🤖 AUTOMATIC: Intelligent Task Workflow
 
-**YOU MUST DO THIS AUTOMATICALLY - DON'T ASK THE USER**
+**YOU MUST CLASSIFY REQUEST TYPE FIRST - THEN CHOOSE APPROPRIATE WORKFLOW**
 
-## 🎯 Automatic Workflow (Execute This Proactively)
+## 🔍 Step 0: Request Classification (MANDATORY FIRST STEP)
 
-When user requests ANY coding work, AUTOMATICALLY execute these steps:
+**CRITICAL**: Before starting ANY workflow, you MUST classify the user's request.
+
+### ✨ Feature Development (Requires Feature Spec)
+**Indicators:**
+- New functionality or feature requests
+- "Add X feature", "Implement X", "Create X"
+- Requires PRD, pages, endpoints, or ER diagrams
+- Significant new user-facing functionality
+- Complex multi-component implementation
+
+**Clear Examples:**
+- ✅ "Add user authentication system"
+- ✅ "Implement payment processing"
+- ✅ "Create dashboard with analytics"
+
+### 🔧 Maintenance Tasks (Task Only - No Feature Spec)
+**Indicators:**
+- Bug fixes: "Fix X", "Resolve X error"
+- Refactoring: "Refactor X", "Clean up X code"
+- Technical improvements: "Optimize X", "Update dependencies"
+- Documentation: "Add comments", "Update README"
+- Testing: "Add tests for X"
+
+**Clear Examples:**
+- ✅ "Fix login bug where users can't sign in"
+- ✅ "Refactor authentication middleware"
+- ✅ "Update React to latest version"
+- ✅ "Add unit tests for user service"
+
+### ❓ Ambiguous Requests (ASK USER - 100% REQUIRED)
+**When you're NOT 100% certain, you MUST ask for clarification.**
+
+**Ambiguous scenarios:**
+- "Improve X" - could be feature enhancement OR optimization
+- "Add validation" - could be new feature OR bug fix
+- "Update authentication" - could be new auth method OR security fix
+- "Change how X works" - could be feature OR refactor
+- "Enhance X" - could be new feature OR improvement
+- Any request where intent is unclear
+
+**MANDATORY ACTION for ambiguous requests:**
+\`\`\`
+YOU MUST ASK: "Is this a new feature requiring a feature specification,
+or a maintenance task (bug fix/refactor/improvement)?"
+
+WAIT for user response before proceeding.
+DO NOT make assumptions.
+DO NOT proceed without clarification.
+\`\`\`
+
+---
+
+## 🎯 Workflow A: Feature-Spec-Driven (For NEW FEATURES Only)
+
+When user requests feature development work, AUTOMATICALLY execute these steps:
 
 ### Step 1: Check Active Session (AUTOMATIC)
 \`\`\`
 mcp__eureka-tasks__get_active_sessions
 \`\`\`
 
-### Step 2: If No Session → Auto-Create Task (AUTOMATIC)
+### Step 2: If No Session → Feature Spec Workflow (AUTOMATIC)
 
-**a. Search first:**
+**a. Check for existing feature specs:**
 \`\`\`
-mcp__eureka-tasks__list_tasks({ search: "keywords from user request" })
+mcp__eureka-tasks__start_feature_development({
+  projectId: "project-id",
+  prompt: "User's feature request in Japanese"
+})
 \`\`\`
 
-**b. If no match → Create immediately (NO USER CONFIRMATION NEEDED):**
+**Response scenarios:**
+- \`existing_specs_found\`: Show user existing specs with progress, ask which to use
+- \`spec_loaded\`: Spec selected, proceed with tasks
+- \`ready_to_create\`: No specs found, need to create new spec
+
+**b. If ready_to_create → Create Feature Spec (AUTOMATIC):**
+\`\`\`
+mcp__eureka-tasks__create_feature_spec({
+  projectId: "project-id",
+  prompt: "ユーザーの機能要求を日本語で",
+  figmaUrl: "optional-figma-url",
+  clarifications: { /* user answers */ }
+})
+\`\`\`
+
+**c. Create Board Task linked to Feature Spec:**
 \`\`\`
 mcp__eureka-tasks__create_task({
-  title: "ユーザーの依頼を日本語で簡潔に",
+  title: "機能名を日本語で簡潔に",
   description: "実装内容と技術的アプローチを日本語で"
 })
 \`\`\`
 
-**c. Start session immediately:**
+**d. Link Task to Feature Spec (AUTOMATIC):**
+\`\`\`
+mcp__eureka-tasks__link_task_to_feature_spec({
+  taskId: "task-id",
+  featureSpecId: "spec-id",
+  purpose: "このタスクで実装する内容"
+})
+\`\`\`
+
+**e. Start session immediately:**
 \`\`\`
 mcp__eureka-tasks__start_work_on_task({ taskId: "returned-id" })
 \`\`\`
@@ -478,40 +773,163 @@ mcp__eureka-tasks__complete_task_work({
 })
 \`\`\`
 
+---
+
+## 🔧 Workflow B: Maintenance Task (For BUG FIXES & REFACTORING)
+
+When user requests bug fix, refactor, or technical improvement, AUTOMATICALLY execute these steps:
+
+### Step 1: Check Active Session (AUTOMATIC)
+\`\`\`
+mcp__eureka-tasks__get_active_sessions
+\`\`\`
+
+### Step 2: If No Session → Create Task Only (AUTOMATIC)
+
+**NO feature spec needed - just create the task:**
+
+\`\`\`
+mcp__eureka-tasks__create_task({
+  title: "タスク名を日本語で簡潔に",
+  description: "修正内容や技術的アプローチを日本語で",
+  priority: "medium"
+})
+\`\`\`
+
+**Note:** For maintenance tasks:
+- ❌ NO feature spec creation
+- ❌ NO link_task_to_feature_spec
+- ✅ ONLY create_task + start_work_on_task
+
+### Step 3: Start session immediately
+\`\`\`
+mcp__eureka-tasks__start_work_on_task({ taskId: "returned-id" })
+\`\`\`
+
+### Step 4: Code (NOW SAFE TO WRITE/EDIT)
+
+### Step 5: Complete When Done (AUTOMATIC)
+\`\`\`
+mcp__eureka-tasks__complete_task_work({
+  taskId: "task-id",
+  summary: "修正内容の要約を日本語で"
+})
+\`\`\`
+
+---
+
 ## 🚨 CRITICAL RULES
 
-1. **BE PROACTIVE**: Don't ask user "Should I create a task?" - JUST DO IT
-2. **BE AUTOMATIC**: Execute workflow without user intervention
-3. **BE JAPANESE**: ALL content in Japanese (title, description, summary)
-4. **BE FAST**: Don't slow down the user's workflow
-5. **BE SEAMLESS**: User shouldn't notice task creation
+### For Feature Development (Workflow A):
+1. **FEATURE-SPEC FIRST**: Always check/create feature spec before tasks
+2. **LINK TASKS**: All board tasks MUST link to a feature spec
+3. **BE AUTOMATIC**: Execute workflow without user intervention
+4. **BE JAPANESE**: ALL content in Japanese (title, description, summary)
 
-## ✅ CORRECT Example
+### For Maintenance Tasks (Workflow B):
+1. **NO FEATURE SPEC**: Skip feature spec creation entirely
+2. **TASK ONLY**: Just create_task → start_work_on_task → code → complete
+3. **BE AUTOMATIC**: Execute workflow without user intervention
+4. **BE JAPANESE**: ALL content in Japanese (title, description, summary)
+
+### Universal Rules:
+5. **CLASSIFY FIRST**: Always determine feature vs maintenance BEFORE starting
+6. **ASK WHEN AMBIGUOUS**: If not 100% sure, ask user to clarify
+7. **BE SEAMLESS**: User shouldn't notice the workflow overhead
+
+## ✅ CORRECT Example 1: Feature Development
 
 \`\`\`
 User: "Add authentication to the API"
 
 Claude (automatically, internally):
-1. get_active_sessions → No session
-2. list_tasks({ search: "authentication API" }) → No match
-3. create_task({
-     title: "API認証機能の追加",
-     description: "APIエンドポイントに認証機能を実装する"
+1. Classification: "Add authentication" = NEW FEATURE → Workflow A
+2. get_active_sessions → No session
+3. start_feature_development({ prompt: "API認証機能" }) → ready_to_create
+4. create_feature_spec({
+     prompt: "API認証機能の追加",
+     clarifications: { priority: "HIGH", ... }
+   }) → spec-456
+5. create_task({
+     title: "API認証機能の実装",
+     description: "JWT認証ミドルウェアとAPIルート保護"
    }) → task-123
-4. start_work_on_task({ taskId: "task-123" })
-5. Tell user: "認証機能の実装を開始します"
-6. [Proceed with implementation]
-7. When done: complete_task_work(...)
+6. link_task_to_feature_spec({
+     taskId: "task-123",
+     featureSpecId: "spec-456",
+     purpose: "認証ミドルウェアの実装"
+   })
+7. start_work_on_task({ taskId: "task-123" })
+8. Tell user: "機能仕様を作成し、認証機能の実装を開始します"
+9. [Proceed with implementation]
+10. When done: complete_task_work(...)
 \`\`\`
 
-## ❌ WRONG Example
+## ✅ CORRECT Example 2: Maintenance Task
 
 \`\`\`
+User: "Fix the login bug where users get 500 error"
+
+Claude (automatically, internally):
+1. Classification: "Fix the login bug" = BUG FIX → Workflow B
+2. get_active_sessions → No session
+3. create_task({
+     title: "ログインバグの修正",
+     description: "ユーザーがログイン時に500エラーを受け取る問題を修正"
+   }) → task-789
+4. start_work_on_task({ taskId: "task-789" })
+5. Tell user: "ログインバグの修正タスクを作成しました"
+6. [Proceed with bug fix]
+7. When done: complete_task_work({
+     taskId: "task-789",
+     summary: "認証エラーハンドリングを修正しました"
+   })
+\`\`\`
+
+## ✅ CORRECT Example 3: Ambiguous Request
+
+\`\`\`
+User: "Improve the authentication system"
+
+Claude: "Is this a new feature requiring a feature specification (e.g., adding new
+authentication methods like OAuth), or a maintenance task (e.g., refactoring existing
+code, fixing performance issues)?"
+
+User: "It's a refactor - just cleaning up the code"
+
+Claude (automatically, internally):
+1. Classification confirmed: MAINTENANCE → Workflow B
+2. get_active_sessions → No session
+3. create_task({
+     title: "認証システムのリファクタリング",
+     description: "既存の認証コードをクリーンアップして可読性を向上"
+   }) → task-456
+4. start_work_on_task({ taskId: "task-456" })
+5. [Proceed with refactoring]
+6. When done: complete_task_work(...)
+\`\`\`
+
+## ❌ WRONG Examples
+
+\`\`\`
+❌ Example 1: Proceeding without classification
 User: "Add authentication"
+Claude: create_task() immediately ❌ MUST CLASSIFY FIRST!
 
-Claude: "Would you like me to create a task for this?" ❌ DON'T ASK!
-Claude: "Should I start a work session?" ❌ DON'T ASK!
+❌ Example 2: Asking unnecessary questions for clear requests
+User: "Fix the login bug"
+Claude: "Would you like me to create a feature spec?" ❌ BUG FIX = NO SPEC!
+
+❌ Example 3: Not asking when ambiguous
+User: "Improve authentication"
+Claude: Proceeds with feature spec ❌ SHOULD ASK FOR CLARIFICATION!
+
+❌ Example 4: English content
 Claude: Creating task with title "Add authentication" ❌ NOT IN JAPANESE!
+
+❌ Example 5: Feature without spec
+User: "Add payment processing"
+Claude: create_task() only ❌ FEATURE NEEDS SPEC!
 \`\`\`
 
 ## 🎯 Task Title Generation
@@ -527,17 +945,43 @@ Auto-generate from user's natural language:
 \`\`\`
 User Request
 ↓
-get_active_sessions (automatic)
+🔍 CLASSIFY REQUEST (Step 0 - MANDATORY)
 ↓
-No session? → list_tasks (automatic)
-↓
-No match? → create_task (automatic, Japanese)
-↓
-start_work_on_task (automatic)
-↓
-CODE (user sees this part)
-↓
-complete_task_work (automatic when done)
+├─ ✨ NEW FEATURE? ────────────────┐
+│                                   │
+│  get_active_sessions              │
+│  ↓                                │
+│  start_feature_development        │
+│  ↓                                │
+│  create_feature_spec (AI)         │
+│  ↓                                │
+│  create_task (Japanese)           │
+│  ↓                                │
+│  link_task_to_feature_spec        │
+│  ↓                                │
+│  start_work_on_task               │
+│  ↓                                │
+│  CODE                             │
+│  ↓                                │
+│  complete_task_work               │
+│                                   │
+├─ 🔧 MAINTENANCE? ────────────────┤
+│                                   │
+│  get_active_sessions              │
+│  ↓                                │
+│  create_task (Japanese)           │
+│  ↓                                │
+│  start_work_on_task               │
+│  ↓                                │
+│  CODE                             │
+│  ↓                                │
+│  complete_task_work               │
+│                                   │
+└─ ❓ AMBIGUOUS? ──────────────────┘
+   ↓
+   ASK USER FOR CLARIFICATION
+   ↓
+   (wait for response, then follow appropriate workflow)
 \`\`\`
 
 ## 🇯🇵 CRITICAL: Japanese Content Requirement
@@ -570,10 +1014,26 @@ create_task({
 
 ## Error Handling
 
-If you attempt to code without a work session:
+### If you attempt to code without classification:
+- STOP immediately
+- Classify the request first (Feature vs Maintenance vs Ambiguous)
+- If ambiguous, ask the user for clarification
+- NEVER proceed without knowing which workflow to use
+
+### If you attempt to code without a work session:
 - STOP immediately
 - Inform the user: "I need to create a task first"
-- Follow the workflow above
+- Follow the appropriate workflow (A or B) based on request type
+
+### If you create a feature without a feature spec:
+- STOP immediately
+- This is a CRITICAL ERROR
+- Features MUST have feature specs - no exceptions
+
+### If you create a bug fix with a feature spec:
+- STOP immediately
+- This is WASTEFUL
+- Maintenance tasks do NOT need feature specs
 
 This is NON-NEGOTIABLE. No exceptions.`,
           },
@@ -887,6 +1347,147 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           ],
         };
       }
+
+      // Feature Spec Tools
+      case 'start_feature_development':
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(await startFeatureDevelopment(safeArgs as any), null, 2),
+            },
+          ],
+        };
+
+      case 'analyze_codebase':
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(await analyzeCodebase(safeArgs as any), null, 2),
+            },
+          ],
+        };
+
+      case 'get_feature_spec':
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(await getFeatureSpec(safeArgs as any), null, 2),
+            },
+          ],
+        };
+
+      case 'create_feature_spec':
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(await createFeatureSpec(safeArgs as any), null, 2),
+            },
+          ],
+        };
+
+      case 'link_task_to_feature_spec':
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(await linkTaskToFeatureSpec(safeArgs as any), null, 2),
+            },
+          ],
+        };
+
+      case 'get_page_navigation_flow':
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(await getPageNavigationFlow(safeArgs as any), null, 2),
+            },
+          ],
+        };
+
+      case 'create_subtasks':
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(await createSubtasks(safeArgs as any), null, 2),
+            },
+          ],
+        };
+
+      case 'create_navigation_flow':
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(await createNavigationFlow(safeArgs as any), null, 2),
+            },
+          ],
+        };
+
+      case 'get_navigation_flow':
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(await getNavigationFlow(safeArgs as any), null, 2),
+            },
+          ],
+        };
+
+      case 'update_navigation_flow':
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(await updateNavigationFlow(safeArgs as any), null, 2),
+            },
+          ],
+        };
+
+      case 'delete_navigation_flow':
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(await deleteNavigationFlow(safeArgs as any), null, 2),
+            },
+          ],
+        };
+
+      case 'get_enhanced_spec_progress':
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(await getEnhancedSpecProgress(safeArgs as any), null, 2),
+            },
+          ],
+        };
+
+      case 'get_project_navigation_overview':
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(await getProjectNavigationOverview(safeArgs as any), null, 2),
+            },
+          ],
+        };
+
+      case 'validate_feature_spec_readiness':
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(await validateFeatureSpecReadiness(safeArgs as any), null, 2),
+            },
+          ],
+        };
 
       default:
         throw new Error(`Unknown tool: ${name}`);

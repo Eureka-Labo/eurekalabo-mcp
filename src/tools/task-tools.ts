@@ -37,6 +37,16 @@ export async function listTasks(filters?: {
 }
 
 /**
+ * Extract Figma URLs from task metadata links
+ */
+function extractFigmaUrls(task: any): string[] {
+  const links = task.metadata?.customData?.links || [];
+  return links
+    .filter((link: any) => link.type === 'figma')
+    .map((link: any) => link.url);
+}
+
+/**
  * Get task details including change history
  */
 export async function getTask(taskId: string): Promise<any> {
@@ -47,11 +57,15 @@ export async function getTask(taskId: string): Promise<any> {
     // Extract work sessions from metadata
     const workSessions = task.metadata?.workSessions || [];
 
+    // Extract Figma URLs from task links
+    const figmaUrls = extractFigmaUrls(task);
+
     return {
       success: true,
       task: {
         ...task,
         workSessionCount: workSessions.length,
+        figmaUrls, // Add Figma URLs to task response
       },
     };
   } catch (error: any) {
@@ -63,12 +77,76 @@ export async function getTask(taskId: string): Promise<any> {
 }
 
 /**
+ * Task type keywords for automatic categorization
+ * Detects maintenance, fix, and refactoring tasks
+ */
+const TASK_TYPE_KEYWORDS = {
+  maintenance: {
+    ja: 'メンテナンス',
+    en: ['maintenance', 'maintain', 'update', 'upgrade', 'dependency', 'dependencies'],
+  },
+  fix: {
+    ja: '修正',
+    en: ['fix', 'bug', 'issue', 'problem', 'error', 'correct', 'resolve'],
+  },
+  refactoring: {
+    ja: 'リファクタリング',
+    en: ['refactor', 'refactoring', 'restructure', 'cleanup', 'clean up', 'improve code', 'code quality'],
+  },
+};
+
+/**
+ * Detect task type from title and description
+ * Returns Japanese prefix if task type is detected
+ */
+function detectTaskTypePrefix(title: string, description?: string): string | null {
+  const lowerTitle = title.toLowerCase();
+  const lowerDesc = description?.toLowerCase() || '';
+  const combined = `${lowerTitle} ${lowerDesc}`;
+
+  // Check for refactoring first (more specific)
+  if (TASK_TYPE_KEYWORDS.refactoring.en.some(kw => combined.includes(kw))) {
+    return TASK_TYPE_KEYWORDS.refactoring.ja;
+  }
+
+  // Check for fix keywords
+  if (TASK_TYPE_KEYWORDS.fix.en.some(kw => combined.includes(kw))) {
+    return TASK_TYPE_KEYWORDS.fix.ja;
+  }
+
+  // Check for maintenance keywords
+  if (TASK_TYPE_KEYWORDS.maintenance.en.some(kw => combined.includes(kw))) {
+    return TASK_TYPE_KEYWORDS.maintenance.ja;
+  }
+
+  return null;
+}
+
+/**
+ * Apply task type prefix to title if not already present
+ */
+function applyTaskTypePrefix(title: string, prefix: string): string {
+  // Check if title already has a Japanese category prefix
+  const hasPrefix = Object.values(TASK_TYPE_KEYWORDS).some(
+    type => title.startsWith(`【${type.ja}】`) || title.startsWith(`[${type.ja}]`)
+  );
+
+  if (hasPrefix) {
+    return title; // Already has a prefix, don't add another
+  }
+
+  return `【${prefix}】${title}`;
+}
+
+/**
  * Create a new task with smart board assignment
  *
  * Automatically assigns task to:
  * 1. Board connected to current git repository, OR
  * 2. Board without repository assignment, OR
  * 3. No board (task created at project level)
+ *
+ * Auto-detects and prefixes task type (メンテナンス/修正/リファクタリング)
  */
 export async function createTask(data: {
   title: string;
@@ -79,6 +157,7 @@ export async function createTask(data: {
   dueDate?: string;
   boardId?: string; // Optional manual override
   parentTaskId?: string; // Optional: create as subtask
+  skipAutoPrefix?: boolean; // Optional: disable automatic task type prefix
 }): Promise<any> {
   try {
     const apiClient = getAPIClient();
@@ -137,9 +216,22 @@ export async function createTask(data: {
       };
     }
 
-    // Create task with board assignment
+    // Auto-detect and apply task type prefix (unless disabled)
+    let finalTitle = data.title;
+    let detectedType: string | null = null;
+
+    if (!data.skipAutoPrefix) {
+      const typePrefix = detectTaskTypePrefix(data.title, data.description);
+      if (typePrefix) {
+        finalTitle = applyTaskTypePrefix(data.title, typePrefix);
+        detectedType = typePrefix;
+      }
+    }
+
+    // Create task with board assignment and processed title
     const taskData = {
       ...data,
+      title: finalTitle,
       boardId, // Always include boardId (now guaranteed to exist)
     };
 
@@ -152,9 +244,12 @@ export async function createTask(data: {
 
     return {
       success: true,
-      message: `Task created successfully: ${task.id}`,
+      message: detectedType
+        ? `Task created successfully with auto-detected type [${detectedType}]: ${task.id}`
+        : `Task created successfully: ${task.id}`,
       task,
       boardAssignment, // Include for debugging/logging
+      detectedType, // Include detected type for reference
     };
   } catch (error: any) {
     return {
