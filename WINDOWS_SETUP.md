@@ -2,12 +2,21 @@
 
 Complete installation guide for Windows users.
 
+## ✅ Windows Compatibility Status
+
+**Version 1.0.0+**: Full Windows support with cross-platform hook paths
+- ✅ **Hooks work on Windows** - Uses `node .claude/hooks/*.cjs` (relative paths)
+- ✅ **CLI fully compatible** - PowerShell, CMD, and Git Bash supported
+- ✅ **Skills auto-discovery** - Claude Code reads `.claude/skills/*/SKILL.md`
+- ✅ **All features working** - Task management, git integration, PR creation
+
 ## Prerequisites
 
 - **Node.js 18+** - Download from [nodejs.org](https://nodejs.org/)
 - **npm** - Comes with Node.js
 - **Git for Windows** - Download from [git-scm.com](https://git-scm.com/)
 - **PowerShell 5.1+** - Built into Windows 10/11
+- **Claude Code** - VS Code extension from Anthropic
 
 ## Quick Start (PowerShell)
 

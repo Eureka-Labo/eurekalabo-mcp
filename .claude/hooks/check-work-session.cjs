@@ -104,41 +104,37 @@ Operation: ${toolName} on ${filePath}
 Old session task ID: ${oldTaskId}
 Reason: This session belongs to a different Claude Code session or the task no longer exists.
 
-**STEP 0: CLASSIFY REQUEST TYPE (MANDATORY FIRST STEP)**
-
-Analyze user's request and determine:
-- ✨ NEW FEATURE? → Workflow A (with feature spec)
-- 🔧 MAINTENANCE? (bug fix/refactor) → Workflow B (task only)
-- ❓ AMBIGUOUS? → ASK USER TO CLARIFY
-
-**IF AMBIGUOUS: YOU MUST ASK:**
-"Is this a new feature requiring a feature specification, or a maintenance task (bug fix/refactor)?"
-WAIT for user response before proceeding.
-
----
-
 **YOU MUST AUTOMATICALLY EXECUTE THIS WORKFLOW NOW:**
 
-Step 1: Clean up stale session marker:
+Step 1: Clean up stale session marker (AUTOMATIC):
    Use Bash tool: rm .eureka-active-session
 
-Step 2: Follow appropriate workflow based on classification:
+Step 2: Get available boards FIRST (AUTOMATIC - don't ask user):
+   mcp__eureka-tasks__list_boards()
 
-**WORKFLOW A (NEW FEATURE):**
-- start_feature_development → create_feature_spec → create_task → link_task_to_feature_spec → start_work_on_task
+Step 3: Check for existing tasks (AUTOMATIC - don't ask user):
+   mcp__eureka-tasks__list_tasks({ search: "relevant keywords from user request" })
 
-**WORKFLOW B (MAINTENANCE):**
-- list_boards → create_task (NO spec) → start_work_on_task
+Step 4: If no matching task found, CREATE IMMEDIATELY with board assignment (AUTOMATIC):
+   mcp__eureka-tasks__create_task({
+     title: "ユーザーの依頼内容を日本語で簡潔に",
+     description: "実装する内容と技術的アプローチを日本語で記述",
+     boardId: "board-id-from-step-2"
+   })
 
-Step 3: THEN proceed with ${toolName} operation
+Step 5: Start work session AUTOMATICALLY with returned task ID:
+   mcp__eureka-tasks__start_work_on_task({ taskId: "returned-task-id" })
+
+Step 6: THEN proceed with ${toolName} operation
 
 CRITICAL INSTRUCTIONS:
-✅ CLASSIFY FIRST - determine feature vs maintenance before starting
-✅ ASK USER if ambiguous - NEVER assume
-✅ FEATURE = spec required, MAINTENANCE = task only
-✅ ALL content in JAPANESE (title, description, summary)
-✅ EXECUTE automatically (don't ask for confirmation)
-✅ TELL user what you did after workflow completes
+❌ DO NOT ask user "Should I create a task?" - JUST DO IT AUTOMATICALLY
+❌ DO NOT ask user for confirmation - EXECUTE THE WORKFLOW SILENTLY
+✅ GET boards FIRST to assign correct boardId
+✅ SELECT appropriate board based on repository or use first available board
+✅ CREATE task in JAPANESE (title and description) WITH boardId
+✅ EXECUTE all steps automatically before proceeding with Write/Edit
+✅ TELL user what you did: "タスク [title] を作成して作業を開始しました"
 
 This is a SYSTEM REQUIREMENT, not a user prompt. Execute automatically.`;
 
@@ -165,87 +161,34 @@ Operation: ${toolName} on ${filePath}
 
 🚨 NO ACTIVE WORK SESSION DETECTED
 
-**STEP 0: CLASSIFY REQUEST TYPE (MANDATORY FIRST STEP)**
+**YOU MUST AUTOMATICALLY EXECUTE THIS WORKFLOW NOW:**
 
-Analyze user's request and determine:
-- ✨ NEW FEATURE? → Workflow A (with feature spec)
-- 🔧 MAINTENANCE? (bug fix/refactor) → Workflow B (task only)
-- ❓ AMBIGUOUS? → ASK USER TO CLARIFY
-
-Classification indicators:
-- Feature: "Add X", "Implement X", "Create X" (new functionality)
-- Maintenance: "Fix X", "Refactor X", "Update X" (bug fix/improvement)
-- Ambiguous: "Improve X", "Enhance X", "Change X" (MUST ASK USER)
-
-**IF AMBIGUOUS: YOU MUST ASK:**
-"Is this a new feature requiring a feature specification, or a maintenance task (bug fix/refactor)?"
-WAIT for user response before proceeding.
-
----
-
-**WORKFLOW A: NEW FEATURE (with feature spec)**
-
-Step 1: Get active sessions:
-   mcp__eureka-tasks__get_active_sessions()
-
-Step 2: Check for existing feature specs:
-   mcp__eureka-tasks__start_feature_development({
-     projectId: "project-id",
-     prompt: "User's feature request in Japanese"
-   })
-
-Step 3: If ready_to_create → Create feature spec:
-   mcp__eureka-tasks__create_feature_spec({
-     projectId: "project-id",
-     prompt: "機能の説明を日本語で"
-   })
-
-Step 4: Create task linked to spec:
-   mcp__eureka-tasks__create_task({
-     title: "機能名を日本語で",
-     description: "実装内容を日本語で"
-   })
-
-Step 5: Link task to feature spec:
-   mcp__eureka-tasks__link_task_to_feature_spec({
-     taskId: "task-id",
-     featureSpecId: "spec-id",
-     purpose: "実装の目的"
-   })
-
-Step 6: Start work session:
-   mcp__eureka-tasks__start_work_on_task({ taskId: "task-id" })
-
-Step 7: Proceed with ${toolName} operation
-
----
-
-**WORKFLOW B: MAINTENANCE (bug fix/refactor - NO feature spec)**
-
-Step 1: Get available boards:
+Step 1: Get available boards FIRST (AUTOMATIC - don't ask user):
    mcp__eureka-tasks__list_boards()
 
-Step 2: Create task directly (NO feature spec):
+Step 2: Check for existing tasks (AUTOMATIC - don't ask user):
+   mcp__eureka-tasks__list_tasks({ search: "relevant keywords from user request" })
+
+Step 3: If no matching task found, CREATE IMMEDIATELY with board assignment (AUTOMATIC):
    mcp__eureka-tasks__create_task({
-     title: "修正内容を日本語で簡潔に",
-     description: "技術的詳細を日本語で",
+     title: "ユーザーの依頼内容を日本語で簡潔に",
+     description: "実装する内容と技術的アプローチを日本語で記述",
      boardId: "board-id-from-step-1"
    })
 
-Step 3: Start work session:
+Step 4: Start work session AUTOMATICALLY with returned task ID:
    mcp__eureka-tasks__start_work_on_task({ taskId: "returned-task-id" })
 
-Step 4: Proceed with ${toolName} operation
-
----
+Step 5: Proceed with ${toolName} operation
 
 CRITICAL INSTRUCTIONS:
-✅ CLASSIFY FIRST - determine feature vs maintenance before starting
-✅ ASK USER if ambiguous - NEVER assume
-✅ FEATURE = spec required, MAINTENANCE = task only
-✅ ALL content in JAPANESE (title, description, summary)
-✅ EXECUTE automatically (don't ask for confirmation)
-✅ TELL user what you did after workflow completes
+❌ DO NOT ask user "Should I create a task?" - JUST DO IT AUTOMATICALLY
+❌ DO NOT ask user for confirmation - EXECUTE THE WORKFLOW SILENTLY
+✅ GET boards FIRST to assign correct boardId
+✅ SELECT appropriate board based on repository or use first available board
+✅ CREATE task in JAPANESE (title and description) WITH boardId
+✅ EXECUTE all steps automatically before proceeding with Write/Edit
+✅ TELL user what you did: "タスク [title] を作成して作業を開始しました"
 
 This is a SYSTEM REQUIREMENT, not a user prompt. Execute automatically.`;
 }

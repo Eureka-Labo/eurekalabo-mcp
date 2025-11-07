@@ -23,80 +23,30 @@ Before every Write or Edit operation, the hook:
 
 ## Required Workflow
 
-### Step 0: Classification (Automatic)
-
-**IMPORTANT**: The hook will first guide you to classify your request:
-
-- **✨ New Feature**: Requires feature specification + task
-- **🔧 Maintenance**: Bug fix/refactor - task only, no spec
-- **❓ Ambiguous**: Hook will prompt you to clarify
-
-See [WORKFLOW_CLASSIFICATION.md](../../docs/WORKFLOW_CLASSIFICATION.md) for details.
-
-### Workflow A: New Feature (with Feature Spec)
-
-```bash
-# Step 1: Check for existing feature specs
-mcp__eureka-tasks__start_feature_development({
-  projectId: "project-id",
-  prompt: "API認証機能の追加"
-})
-
-# Step 2: Create feature spec (if needed)
-mcp__eureka-tasks__create_feature_spec({
-  projectId: "project-id",
-  prompt: "JWT認証システムの実装"
-})
-
-# Step 3: Create task linked to spec
-mcp__eureka-tasks__create_task({
-  title: "JWT認証の実装",
-  description: "認証ミドルウェアとエンドポイント保護"
-})
-
-# Step 4: Link task to feature spec
-mcp__eureka-tasks__link_task_to_feature_spec({
-  taskId: "task-123",
-  featureSpecId: "spec-456",
-  purpose: "認証ミドルウェアの実装"
-})
-
-# Step 5: Start work session
-mcp__eureka-tasks__start_work_on_task({ taskId: "task-123" })
-
-# Step 6: Write/Edit operations now allowed
-Write({ file_path: "src/auth.ts", content: "..." })
-
-# Step 7: Complete work session
-mcp__eureka-tasks__complete_task_work({
-  taskId: "task-123",
-  summary: "JWT認証ミドルウェアを実装しました"
-})
-```
-
-### Workflow B: Maintenance (Bug Fix/Refactor - No Feature Spec)
-
 ```bash
 # Step 1: Get available boards
 mcp__eureka-tasks__list_boards()
 
-# Step 2: Create task directly (NO feature spec)
+# Step 2: Search for existing tasks
+mcp__eureka-tasks__list_tasks({ search: "認証" })
+
+# Step 3: Create task if none exists (Japanese content with board assignment)
 mcp__eureka-tasks__create_task({
-  title: "ログインバグの修正",
-  description: "500エラーの原因を特定して修正",
+  title: "APIにJWT認証を追加",
+  description: "認証ミドルウェアを実装し、全エンドポイントを保護する",
   boardId: "board-abc123"
 })
 
-# Step 3: Start work session
+# Step 4: Start work session (REQUIRED before code changes)
 mcp__eureka-tasks__start_work_on_task({ taskId: "task-123" })
 
-# Step 4: Write/Edit operations now allowed
+# Step 5: Now Write/Edit operations are allowed
 Write({ file_path: "src/auth.ts", content: "..." })
 
-# Step 5: Complete work session
+# Step 6: Complete work session (Japanese summary)
 mcp__eureka-tasks__complete_task_work({
   taskId: "task-123",
-  summary: "認証エラーハンドリングを修正しました"
+  summary: "JWT認証ミドルウェアを実装しました"
 })
 ```
 

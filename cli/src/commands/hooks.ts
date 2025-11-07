@@ -518,10 +518,12 @@ async function updateClaudeSettings(workspace: string) {
     await ensureClaudeConfigDir();
 
     const settingsPath = join(workspace, '.claude', 'settings.local.json');
-    // Use absolute paths - hooks are installed IN the project's .claude/hooks directory
-    // So when you move/clone the project to a new computer, the hooks move with it
-    const checkWorkSessionHookPath = join(workspace, '.claude', 'hooks', 'check-work-session.cjs');
-    const storeSessionIdHookPath = join(workspace, '.claude', 'hooks', 'store-session-id.cjs');
+
+    // Use relative paths with 'node' prefix for cross-platform compatibility
+    // Works on Windows, macOS, and Linux
+    // Claude Code will resolve relative paths from the workspace directory
+    const checkWorkSessionHookPath = 'node .claude/hooks/check-work-session.cjs';
+    const storeSessionIdHookPath = 'node .claude/hooks/store-session-id.cjs';
 
     let settings: any = {};
 
